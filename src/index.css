@@ -1,0 +1,33 @@
+:root {
+  --sans: system-ui, 'Segoe UI', Roboto, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  font: 16px/1.5 var(--sans);
+  color-scheme: light dark;
+  color: #1a1a1c;
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+}
+
+h1,
+h2 {
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #ececef;
+    background: #101013;
+  }
+}
