@@ -1,17 +1,23 @@
 # スロット設定判別ツール
 
 パチスロの設定判別(設定1〜6のどれか)を、観測した事象から**ベイズ推定**で行うWebアプリ。
-対応機種は「うみねこのなく頃に2」「少女☆歌劇 レヴュースタァライト」(後者はプレースホルダーデータ)。
-機種はヘッダーのハンバーガーメニューから切り替える。ボーナスを引くたびに**その時点の当選ゲーム数・契機・種別**を
-入力する1本のフローで、契機×種別の内訳による判別と、総ゲーム数×BIG/REG回数による判別の
-両方が自動的に(同じ入力から)計算される。これとは別に、総ゲーム数とBIG/REG回数だけを直接
-入力する独立した「簡易設定推測」も用意している。
+対応機種は「うみねこのなく頃に2」(実データ)「少女☆歌劇 レヴュースタァライト」(bonusRatesは実データ、
+outcomesはプレースホルダー)。機種ごとに2ページある: 「判別ツール」(入力→事後確率計算)と
+「設定差ポイント」(判別計算には使わない、既知の設定差要素をまとめた読み物ページ)。
+機種切り替えはヘッダーのハンバーガーメニュー、ページ切り替えはタブで行う。
+URLは `/:machineId/tool` `/:machineId/points` で、直接リンク・リロードにも対応(react-router)。
+
+判別ツールでは、ボーナスを引くたびに**その時点の当選ゲーム数・契機・種別**を入力する1本のフローで、
+契機×種別の内訳による判別と、総ゲーム数×BIG/REG回数による判別の両方が自動的に(同じ入力から)
+計算される。これとは別に、総ゲーム数とBIG/REG回数だけを直接入力する独立した「簡易設定推測」も用意している。
 
 ## 技術構成
 
-- Vite + React + TypeScript
+- Vite + React + TypeScript + react-router-dom
 - Node は nvm 管理。**シェルを開くたびに `export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"` が必要**
   (非対話シェルは .bashrc を読まないため、node/npm を使うコマンドは毎回これを前置する)
+- `vercel.json` — Vercelでのデプロイ時、`/umineko2/points` のような直リンクが404にならないよう
+  全パスを `index.html` にリライトするSPAフォールバック設定
 
 ## コマンド
 
@@ -27,9 +33,12 @@ npm run lint     # oxlint
 **エンジン(機種非依存)とデータ(機種固有)を分離**している。機種を増やすときはデータを足すだけ。
 
 - `src/engine/` — 判別エンジン。ここに機種固有の知識を入れない
-  - `types.ts` — Machine / Trigger / BonusType / Outcome / Observation / BonusRate / SpinTally などの型。
+  - `types.ts` — Machine / Trigger / BonusType / Outcome / Observation / BonusRate / SpinTally /
+    ReferencePoint などの型。
     `Observation` は `{ triggerId, typeId, gameCount }`(gameCount = 当選ゲーム数)。
-    `Machine.notes?: string[]` はUIに表示する機種固有の注意点(完走型ARTの記録のコツなど)
+    `Machine.notes?: string[]` はUIに表示する機種固有の注意点(完走型ARTの記録のコツなど)。
+    `Machine.referencePoints?: ReferencePoint[]` は「設定差ポイント」ページ用の読み物データ
+    (title/body/任意のtable。判別計算には一切使わない)
   - `bayes.ts`
     - `computePosterior(machine, observations, { prior?, spinTally? })` — 対数空間でベイズ計算
     - `deriveSpinTally(machine, observations)` — 観測列から SpinTally を自動算出(手入力の集計欄は無し)。
@@ -40,14 +49,22 @@ npm run lint     # oxlint
       設定ごとに自動正規化するので % 換算が不要(umineko2.ts はこちらを使用)
     - `bonusRatesFromDenominatorTable` — BonusRate[](総ゲーム数判別用)を「1/N」表から作る
 - `src/machines/` — 機種データ
-  - `umineko2.ts` — うみねこ2のデータ。BonusType に `category: 'big' | 'reg'` を持たせ、
+  - `umineko2.ts` — うみねこ2のデータ(実データ)。BonusType に `category: 'big' | 'reg'` を持たせ、
     観測から自動でBIG/REG回数を集計できるようにしている
+  - `starlight.ts` — レヴュースタァライトのデータ。bonusRates(赤7BIG/青7BIG/REG)は実データ、
+    outcomes(契機×種別)は解析データが薄いためプレースホルダー
   - `index.ts` — 対応機種の登録簿
-- `src/App.tsx` — UI。2つの独立したセクションを持つ
+- `src/Layout.tsx` — ヘッダー(タイトル・機種名・ハンバーガーメニュー)とページタブ(判別ツール/設定差
+  ポイント)を持つ共通レイアウト。`<Outlet key={machine.id} context={{ machine }} />` で子ページに
+  machine を渡す。key に machine.id を使うことで機種切り替え時に子ページの state を確実にリセットしている
+- `src/pages/ToolPage.tsx` — 判別ツール本体。2つの独立したセクションを持つ
   1. 1つの入力フォーム(当選ゲーム数・契機・種別)で観測を追加するだけで、契機×種別の内訳判別と
      総ゲーム数判別の両方が同時に計算される(`observations` → `deriveSpinTally` で自動算出)
   2. 「簡易設定推測」— 総ゲーム数・BIG回数・REG回数を直接入力するだけの独立したツール。
      `observations` を使わず `computePosterior(machine, [], { spinTally })` で直接計算する
+- `src/pages/PointsPage.tsx` — 「設定差ポイント」ページ。`machine.referencePoints` をそのまま
+  カード+表として描画するだけ(計算ロジック無し)
+- `src/App.tsx` — ルーティング定義のみ(`Routes`/`Route`)。実際のUIはLayout/pages側にある
 
 ## 判別モデル
 
@@ -99,16 +116,22 @@ npm run lint     # oxlint
      でBIG/REGなどカテゴリ別の1ゲームあたり確率を定義する。無くてもアプリは動く
      (該当UIセクションが自動的に非表示になるだけ)
    - `notes`(任意) — その機種固有の注意点(ART方式による記録のコツなど)を文字列配列で
+   - `referencePoints`(任意) — 「設定差ポイント」ページに載せる読み物。判別計算に使えない情報
+     (CZ確率など排他性が保証できないものや、契機別内訳が薄くて計算に組み込めない実データ)の
+     置き場としても使える。`{ title, body, table?: { rows: [{ label, valuesBySetting }] } }`
    - コメントで出典(URL)を明記する
 2. `src/machines/index.ts` の `machines` 配列に追加する
 3. `npm run build` して `validateMachine` の警告(開発時コンソール)が出ないか確認する
 4. ヘッダーのハンバーガーメニューに自動で出現し、UIは全て機種データから動的に組み立てられる
-   (契機・種別の選択肢、総ゲーム数評価の有無、簡易設定推測の有無、machine.notes の表示、すべて
-   `machine` オブジェクトの中身だけで決まる。App.tsx 側にその機種固有の分岐を書く必要はない)
+   (契機・種別の選択肢、総ゲーム数評価の有無、簡易設定推測の有無、machine.notes/referencePoints の
+   表示、すべて `machine` オブジェクトの中身だけで決まる。App.tsx 側にその機種固有の分岐を書く必要はない)
 
-`starlight.ts`(少女☆歌劇 レヴュースタァライト)は、この手順で追加した2機種目の実例。
-数値は umineko2.ts の初期実装時と同様、実データ判明までの【プレースホルダー】。
-bonusRates/notes を省略した最小構成の例にもなっている(該当UIセクションが自動で非表示になる)。
+`starlight.ts`(少女☆歌劇 レヴュースタァライト、オーイズミ)は、この手順で追加した2機種目の実例。
+bonusRates(赤7BIG/青7BIG/REG)・referencePoints(ボーナス内訳/CZ確率/AT初当たり確率など)は
+なな徹・DMMぱちタウン・パチセブンで裏付けの取れた実データ。outcomes(契機×種別の内訳)は
+解析がまだ薄く、実データが確認できたのは「キラめき目+REG」の設定1・6のみだったため、
+無理に埋めず【プレースホルダー】のままにしてある(referencePointsに参考値として記載)。
+設定3の数値はどの出典サイトにも掲載が無く、設定2・4の中間で線形補間した推定値を使っている。
 
 ## 今後の拡張候補
 

@@ -52,6 +52,19 @@ export interface SpinTally {
   counts: Record<string, number>;
 }
 
+/**
+ * 「設定差ポイント」ページに表示する参考情報1項目。判別計算には使わず、
+ * 読み物として設定判別要素をまとめるためのデータ。table は任意(数値表が無い注記だけの項目もある)。
+ */
+export interface ReferencePoint {
+  title: string;
+  body: string;
+  table?: {
+    /** 設定ID -> 表示用の文字列(例: "1/265.9")。 */
+    rows: { label: string; valuesBySetting: Record<SettingId, string> }[];
+  };
+}
+
 /** 1機種の判別に必要なデータ一式。 */
 export interface Machine {
   id: string;
@@ -64,6 +77,8 @@ export interface Machine {
   bonusRates?: BonusRate[];
   /** UIに表示する機種固有の注意点(任意)。例: ARTの区切り方によるゲーム数記録のコツなど。 */
   notes?: string[];
+  /** 「設定差ポイント」ページに表示する参考情報(任意)。判別計算には使わない読み物データ。 */
+  referencePoints?: ReferencePoint[];
 }
 
 /** ユーザーが観測した1回のボーナス。 */
