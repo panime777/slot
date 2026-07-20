@@ -1,4 +1,4 @@
-import type { BonusRate, Machine, Outcome, SettingId } from './types';
+import type { CounterCategory, Machine, Outcome, SettingId } from './types';
 
 /**
  * データを「表」として書くための補助。
@@ -86,22 +86,22 @@ export function outcomesFromDenominatorTable(
 }
 
 /**
- * 総ゲーム数×当選回数による判別(spinTally)用の BonusRate[] を、
- * 「1/N」表記(N=分母)の表から作る。カテゴリ同士は排他(同じゲームで同時に起こらない)想定。
+ * CounterGroup.categories 用の CounterCategory[] を「1/N」表記(N=分母)の表から作る。
+ * 同じ CounterGroup 内で使うカテゴリ同士は排他(同じ試行で同時に起こらない)想定。
  *
  * 例:
- *   bonusRatesFromDenominatorTable(['1','2','3','4','5','6'], {
+ *   counterCategoriesFromDenominatorTable(['1','2','3','4','5','6'], {
  *     big: { label: 'BIG合算', denominators: [362.1, 350.5, 337.8, 327.7, 319.7, 313.6] },
  *   })
  */
-export function bonusRatesFromDenominatorTable(
+export function counterCategoriesFromDenominatorTable(
   settings: SettingId[],
   table: Record<string, { label: string; denominators: number[] }>,
-): BonusRate[] {
+): CounterCategory[] {
   return Object.entries(table).map(([id, { label, denominators }]) => {
     if (denominators.length !== settings.length) {
       throw new Error(
-        `bonusRatesFromDenominatorTable: "${id}" の値は ${settings.length} 個必要です(${denominators.length} 個でした)`,
+        `counterCategoriesFromDenominatorTable: "${id}" の値は ${settings.length} 個必要です(${denominators.length} 個でした)`,
       );
     }
     const probBySetting: Record<SettingId, number> = {};
@@ -113,12 +113,41 @@ export function bonusRatesFromDenominatorTable(
 }
 
 /**
+ * CounterGroup.categories 用の CounterCategory[] を%表記の表から作る。
+ * 「激走チャージ後のセリフ」のように、出典が確率(%)で公開されているカウント要素に使う。
+ *
+ * 例:
+ *   counterCategoriesFromPercentTable(['1','2','3','4','5','6'], {
+ *     ochitsuku: { label: '落ち着くんだ憲二…', percents: [50, 40, 40, 40, 70, 40] },
+ *   })
+ */
+export function counterCategoriesFromPercentTable(
+  settings: SettingId[],
+  table: Record<string, { label: string; percents: number[] }>,
+): CounterCategory[] {
+  return Object.entries(table).map(([id, { label, percents }]) => {
+    if (percents.length !== settings.length) {
+      throw new Error(
+        `counterCategoriesFromPercentTable: "${id}" の値は ${settings.length} 個必要です(${percents.length} 個でした)`,
+      );
+    }
+    const probBySetting: Record<SettingId, number> = {};
+    settings.forEach((s, i) => {
+      probBySetting[s] = percents[i] / 100;
+    });
+    return { id, label, probBySetting };
+  });
+}
+
+/**
  * データの健全性チェック(開発時用)。
  * 各設定について、全 Outcome の確率合計が 1 に近いかを見る。
  * 「ボーナス1回あたりの内訳」モデルなので、合計は設定ごとに 1 になるのが正しい。
+ * outcomes を意図的に持たない機種(counterGroupsのみで判別するAT機など)ではスキップする。
  */
 export function validateMachine(machine: Machine): string[] {
   const warnings: string[] = [];
+  if (machine.outcomes.length === 0) return warnings;
   for (const s of machine.settings) {
     let sum = 0;
     for (const o of machine.outcomes) sum += o.probBySetting[s] ?? 0;

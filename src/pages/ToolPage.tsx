@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { computePosterior, deriveSpinTally } from '../engine/bayes';
+import { computePosterior, deriveCounterObservations } from '../engine/bayes';
 import { validateMachine } from '../engine/authoring';
-import type { Observation, PosteriorEntry } from '../engine/types';
+import type { CounterObservation, Observation, PosteriorEntry } from '../engine/types';
 import type { OutletContext } from '../Layout';
 import { useLocalStorageState } from '../hooks/useLocalStorageState';
 import { storageKeys, todayDateString, type Session } from '../session';
+
+const EMPTY_COUNTER_GROUPS: NonNullable<OutletContext['machine']['counterGroups']> = [];
 
 function PosteriorBars({ posterior }: { posterior: PosteriorEntry[] }) {
   const sorted = [...posterior].sort((a, b) => b.probability - a.probability);
@@ -29,11 +31,13 @@ function PosteriorBars({ posterior }: { posterior: PosteriorEntry[] }) {
 
 export default function ToolPage() {
   const { machine } = useOutletContext<OutletContext>();
+  const hasEventFlow = machine.triggers.length > 0 && machine.types.length > 0;
+  const counterGroups = machine.counterGroups ?? EMPTY_COUNTER_GROUPS;
 
   // 現在選択中の入力(まだ「追加」していないもの)。
   const [gameCount, setGameCount] = useState('');
-  const [triggerId, setTriggerId] = useState(machine.triggers[0].id);
-  const [typeId, setTypeId] = useState(machine.types[0].id);
+  const [triggerId, setTriggerId] = useState(machine.triggers[0]?.id ?? '');
+  const [typeId, setTypeId] = useState(machine.types[0]?.id ?? '');
 
   // これまでに観測したボーナス一覧(契機・種別・その時点の当選ゲーム数)。
   // リロードしても消えないよう localStorage に永続化する。
@@ -50,40 +54,55 @@ export default function ToolPage() {
     [],
   );
 
-  // 総ゲーム数評価は observations から自動算出する(手入力の集計欄は持たない)。
-  const spinTally = useMemo(
-    () => deriveSpinTally(machine, observations),
+  // カウント評価は observations から自動算出する(契機×種別の category 経由)。
+  const derivedCounterObservations = useMemo(
+    () => deriveCounterObservations(machine, observations),
     [machine, observations],
   );
 
   const { posterior, skipped } = useMemo(
-    () => computePosterior(machine, observations, { spinTally }),
-    [machine, observations, spinTally],
+    () => computePosterior(machine, observations, { counterObservations: derivedCounterObservations }),
+    [machine, observations, derivedCounterObservations],
   );
 
-  // 簡易設定推測: 詳細なボーナス記録とは別に、総ゲーム数とBIG/REG回数だけで判定する。
-  const [quickTotalSpins, setQuickTotalSpins] = useState('');
-  const [quickCounts, setQuickCounts] = useState<Record<string, string>>({});
+  // 設定推測(手入力): 各カウントグループごとに母数とカテゴリ別回数を直接入力する。
+  // hasEventFlow が true の機種では詳細なボーナス記録とは別の「簡易」ツールとして、
+  // false の機種(契機×種別の内訳が無い機種)ではこれが唯一の判別ツールになる。
+  const [quickTrials, setQuickTrials] = useState<Record<string, string>>({});
+  const [quickCounts, setQuickCounts] = useState<Record<string, Record<string, string>>>({});
 
-  const quickSpinTally = useMemo(() => {
-    const spins = Number(quickTotalSpins);
-    if (!spins || spins <= 0) return undefined;
-    const counts: Record<string, number> = {};
-    for (const r of machine.bonusRates ?? []) {
-      counts[r.id] = Number(quickCounts[r.id]) || 0;
+  const quickCounterObservations = useMemo(() => {
+    const list: CounterObservation[] = [];
+    for (const group of counterGroups) {
+      const trials = Number(quickTrials[group.id]) || 0;
+      if (trials <= 0) continue;
+      const counts: Record<string, number> = {};
+      for (const category of group.categories) {
+        counts[category.id] = Number(quickCounts[group.id]?.[category.id]) || 0;
+      }
+      list.push({ groupId: group.id, trials, counts });
     }
-    return { totalSpins: spins, counts };
-  }, [quickTotalSpins, quickCounts, machine]);
+    return list;
+  }, [quickTrials, quickCounts, counterGroups]);
 
-  const quickCountSum = (machine.bonusRates ?? []).reduce(
-    (sum, r) => sum + (Number(quickCounts[r.id]) || 0),
-    0,
-  );
-  const quickOverCounted = quickSpinTally != null && quickCountSum > quickSpinTally.totalSpins;
+  const overCountedGroupIds = counterGroups
+    .filter((group) => {
+      const trials = Number(quickTrials[group.id]) || 0;
+      if (trials <= 0) return false;
+      const sum = group.categories.reduce(
+        (s, c) => s + (Number(quickCounts[group.id]?.[c.id]) || 0),
+        0,
+      );
+      return sum > trials;
+    })
+    .map((g) => g.label);
 
   const quickPosterior = useMemo(
-    () => (quickSpinTally ? computePosterior(machine, [], { spinTally: quickSpinTally }) : null),
-    [machine, quickSpinTally],
+    () =>
+      quickCounterObservations.length > 0
+        ? computePosterior(machine, [], { counterObservations: quickCounterObservations })
+        : null,
+    [machine, quickCounterObservations],
   );
 
   // 開発時のみデータ健全性を警告。
@@ -140,6 +159,68 @@ export default function ToolPage() {
     ? [...quickPosterior.posterior].sort((a, b) => b.probability - a.probability)[0]
     : null;
 
+  const quickSection = counterGroups.length > 0 && (
+    <QuickSection
+      as={hasEventFlow ? 'details' : 'section'}
+      title={hasEventFlow ? '簡易設定推測' : '設定推測'}
+      showIndependentNote={hasEventFlow}
+    >
+      {counterGroups.map((group) => (
+        <div className="quick-group" key={group.id}>
+          <label className="quick-total">
+            {group.label}({group.unitLabel})
+            <input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              placeholder="例: 3000"
+              value={quickTrials[group.id] ?? ''}
+              onChange={(e) =>
+                setQuickTrials((prev) => ({ ...prev, [group.id]: e.target.value }))
+              }
+            />
+          </label>
+          <div className="quick-counts">
+            {group.categories.map((category) => (
+              <label key={category.id}>
+                {category.label}
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={quickCounts[group.id]?.[category.id] ?? ''}
+                  onChange={(e) =>
+                    setQuickCounts((prev) => ({
+                      ...prev,
+                      [group.id]: { ...prev[group.id], [category.id]: e.target.value },
+                    }))
+                  }
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+      {overCountedGroupIds.length > 0 && (
+        <p className="hint">
+          ※ 当選回数の合計が母数を超えています({overCountedGroupIds.join('、')})。
+        </p>
+      )}
+      {quickPosterior && quickTop ? (
+        <>
+          <p className="top">
+            最有力: <strong>設定{quickTop.setting}</strong>（
+            {(quickTop.probability * 100).toFixed(1)}%）
+          </p>
+          <PosteriorBars posterior={quickPosterior.posterior} />
+        </>
+      ) : (
+        <p className="hint">母数を入力すると各設定の確率が出ます。</p>
+      )}
+    </QuickSection>
+  );
+
   return (
     <>
       {import.meta.env.DEV && warnings.length > 0 && (
@@ -153,104 +234,113 @@ export default function ToolPage() {
         </div>
       )}
 
-      <section className="input">
-        <label className="game-count">
-          当選ゲーム数
-          <input
-            type="number"
-            min="1"
-            inputMode="numeric"
-            placeholder="例: 1520"
-            value={gameCount}
-            onChange={(e) => setGameCount(e.target.value)}
-          />
-        </label>
-        <div className="row">
-          <label>
-            契機
-            <select value={triggerId} onChange={(e) => setTriggerId(e.target.value)}>
-              {machine.triggers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            種別
-            <select value={typeId} onChange={(e) => setTypeId(e.target.value)}>
-              {machine.types.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <button className="add" onClick={addObservation} disabled={!canAdd}>
-          ＋ ボーナスを追加
-        </button>
-        {gameCountOutOfOrder && (
-          <p className="hint">
-            ※ 直近の記録({latestGameCount}G)より前の当選ゲーム数です。入力を確認してください。
-          </p>
-        )}
-        {machine.notes?.map((note, i) => (
-          <p key={i} className="hint tip">
-            {note}
-          </p>
-        ))}
-      </section>
-
-      <section className="result">
-        <div className="result-head">
-          <h2>設定判別</h2>
-          <span className="count">{observations.length} 件</span>
-        </div>
-        {observations.length === 0 ? (
-          <p className="hint">ボーナスを追加すると各設定の確率が出ます。</p>
-        ) : (
-          <p className="top">
-            最有力: <strong>設定{topSetting.setting}</strong>（
-            {(topSetting.probability * 100).toFixed(1)}%）
-          </p>
-        )}
-        <PosteriorBars posterior={posterior} />
-        {spinTally && machine.bonusRates && machine.bonusRates.length > 0 && (
-          <p className="hint">
-            総ゲーム数評価: {spinTally.totalSpins}G中
-            {machine.bonusRates
-              .map((r) => `${r.label}${spinTally.counts[r.id] ?? 0}回`)
-              .join(' / ')}
-          </p>
-        )}
-        {skipped.length > 0 && (
-          <p className="hint">
-            ※ データ未登録の組み合わせが {skipped.length} 件あり、計算から除外されました。
-          </p>
-        )}
-      </section>
-
-      <section className="history">
-        <div className="result-head">
-          <h2>入力履歴</h2>
-          {observations.length > 0 && (
-            <button className="reset" onClick={reset}>
-              全消去
+      {hasEventFlow && (
+        <>
+          <section className="input">
+            <label className="game-count">
+              当選ゲーム数
+              <input
+                type="number"
+                min="1"
+                inputMode="numeric"
+                placeholder="例: 1520"
+                value={gameCount}
+                onChange={(e) => setGameCount(e.target.value)}
+              />
+            </label>
+            <div className="row">
+              <label>
+                契機
+                <select value={triggerId} onChange={(e) => setTriggerId(e.target.value)}>
+                  {machine.triggers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                種別
+                <select value={typeId} onChange={(e) => setTypeId(e.target.value)}>
+                  {machine.types.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <button className="add" onClick={addObservation} disabled={!canAdd}>
+              ＋ ボーナスを追加
             </button>
-          )}
-        </div>
-        <ol>
-          {observations.map((o, i) => (
-            <li key={i}>
-              <span>
-                {o.gameCount}G: {label('trigger', o.triggerId)} → {label('type', o.typeId)}
-              </span>
-              <button onClick={() => removeObservation(i)}>×</button>
-            </li>
-          ))}
-        </ol>
-      </section>
+            {gameCountOutOfOrder && (
+              <p className="hint">
+                ※ 直近の記録({latestGameCount}G)より前の当選ゲーム数です。入力を確認してください。
+              </p>
+            )}
+            {machine.notes?.map((note, i) => (
+              <p key={i} className="hint tip">
+                {note}
+              </p>
+            ))}
+          </section>
+
+          <section className="result">
+            <div className="result-head">
+              <h2>設定判別</h2>
+              <span className="count">{observations.length} 件</span>
+            </div>
+            {observations.length === 0 ? (
+              <p className="hint">ボーナスを追加すると各設定の確率が出ます。</p>
+            ) : (
+              <p className="top">
+                最有力: <strong>設定{topSetting.setting}</strong>（
+                {(topSetting.probability * 100).toFixed(1)}%）
+              </p>
+            )}
+            <PosteriorBars posterior={posterior} />
+            {derivedCounterObservations.map((obs) => {
+              const group = counterGroups.find((g) => g.id === obs.groupId);
+              if (!group) return null;
+              return (
+                <p className="hint" key={obs.groupId}>
+                  {group.label}評価: {obs.trials}
+                  {group.unitLabel}中
+                  {group.categories
+                    .map((c) => `${c.label}${obs.counts[c.id] ?? 0}回`)
+                    .join(' / ')}
+                </p>
+              );
+            })}
+            {skipped.length > 0 && (
+              <p className="hint">
+                ※ データ未登録の組み合わせが {skipped.length} 件あり、計算から除外されました。
+              </p>
+            )}
+          </section>
+
+          <section className="history">
+            <div className="result-head">
+              <h2>入力履歴</h2>
+              {observations.length > 0 && (
+                <button className="reset" onClick={reset}>
+                  全消去
+                </button>
+              )}
+            </div>
+            <ol>
+              {observations.map((o, i) => (
+                <li key={i}>
+                  <span>
+                    {o.gameCount}G: {label('trigger', o.triggerId)} → {label('type', o.typeId)}
+                  </span>
+                  <button onClick={() => removeObservation(i)}>×</button>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </>
+      )}
 
       <section className="coins">
         <h2>投資・回収</h2>
@@ -291,57 +381,43 @@ export default function ToolPage() {
         </p>
       </section>
 
-      {machine.bonusRates && machine.bonusRates.length > 0 && (
-        <details className="quick">
-          <summary>簡易設定推測</summary>
-          <p className="desc">
-            ボーナスを1件ずつ記録しなくても、総ゲーム数と各カテゴリの当選回数だけで大まかに判定できます。
-            上の詳細な記録とは別の、独立した簡易ツールです。
-          </p>
-          <label className="quick-total">
-            総ゲーム数
-            <input
-              type="number"
-              min="0"
-              inputMode="numeric"
-              placeholder="例: 3000"
-              value={quickTotalSpins}
-              onChange={(e) => setQuickTotalSpins(e.target.value)}
-            />
-          </label>
-          <div className="quick-counts">
-            {machine.bonusRates.map((r) => (
-              <label key={r.id}>
-                {r.label}
-                <input
-                  type="number"
-                  min="0"
-                  inputMode="numeric"
-                  placeholder="0"
-                  value={quickCounts[r.id] ?? ''}
-                  onChange={(e) =>
-                    setQuickCounts((prev) => ({ ...prev, [r.id]: e.target.value }))
-                  }
-                />
-              </label>
-            ))}
-          </div>
-          {quickOverCounted && (
-            <p className="hint">※ 当選回数の合計が総ゲーム数を超えています。</p>
-          )}
-          {quickPosterior && quickTop ? (
-            <>
-              <p className="top">
-                最有力: <strong>設定{quickTop.setting}</strong>（
-                {(quickTop.probability * 100).toFixed(1)}%）
-              </p>
-              <PosteriorBars posterior={quickPosterior.posterior} />
-            </>
-          ) : (
-            <p className="hint">総ゲーム数を入力すると各設定の確率が出ます。</p>
-          )}
-        </details>
-      )}
+      {quickSection}
     </>
+  );
+}
+
+function QuickSection({
+  as,
+  title,
+  showIndependentNote,
+  children,
+}: {
+  as: 'details' | 'section';
+  title: string;
+  showIndependentNote: boolean;
+  children: ReactNode;
+}) {
+  const desc = showIndependentNote
+    ? 'ボーナスを1件ずつ記録しなくても、母数とカテゴリ別の回数だけで大まかに判定できます。' +
+      '上の詳細な記録とは別の、独立した簡易ツールです。複数の要素を入力すれば、それぞれの' +
+      '判別根拠が合算されて1つの結果になります。'
+    : '各判別要素の母数とカテゴリ別の回数を入力してください。複数入力すれば、それぞれの' +
+      '判別根拠が合算されて1つの結果になります。';
+
+  if (as === 'details') {
+    return (
+      <details className="quick">
+        <summary>{title}</summary>
+        <p className="desc">{desc}</p>
+        {children}
+      </details>
+    );
+  }
+  return (
+    <section className="quick">
+      <h2>{title}</h2>
+      <p className="desc">{desc}</p>
+      {children}
+    </section>
   );
 }

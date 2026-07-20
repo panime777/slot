@@ -15,8 +15,8 @@ export interface BonusType {
   id: string;
   label: string;
   /**
-   * この種別が属する BonusRate.id(例: 'big' / 'reg')。設定されていれば、
-   * この種別の観測を自動的に総ゲーム数評価(SpinTally)のカテゴリ当選回数として数える。
+   * この種別が属する CounterCategory.id(例: 'big' / 'reg')。設定されていれば、
+   * この種別の観測を自動的にカウント評価(CounterObservation)の当選回数として数える。
    */
   category?: string;
 }
@@ -34,21 +34,37 @@ export interface Outcome {
 }
 
 /**
- * 「1ゲームあたりこのカテゴリに当選する確率」を設定ごとに持つ。
- * 契機×種別の内訳とは独立な、第二の証拠源(総ゲーム数と当選回数)に使う。
- * 例: BIG合算・REG合算のように、カテゴリ同士は排他(同じゲームで同時に起こらない)を想定。
+ * 「1試行あたりこのカテゴリに当選する確率」を設定ごとに持つ。
+ * 同じ CounterGroup 内のカテゴリ同士は排他(同じ試行で同時に起こらない)を想定。
+ * 例: BIG・REGのように、カテゴリ同士は排他だが「何にも当選しない試行」もあり得る。
  */
-export interface BonusRate {
+export interface CounterCategory {
   id: string;
   label: string;
-  /** 設定ID -> 1ゲームあたりの当選確率(0〜1)。 */
+  /** 設定ID -> 1試行あたりの当選確率(0〜1)。 */
   probBySetting: Record<SettingId, number>;
 }
 
-/** 「Nゲーム回して、カテゴリごとに何回当選したか」の集計入力。 */
-export interface SpinTally {
-  totalSpins: number;
-  /** カテゴリID(BonusRate.id) -> 当選回数。 */
+/**
+ * 契機×種別の内訳とは独立な、カウントベースの証拠源1つのまとまり。
+ * 「ボーナス合算」「5枚役」「激走チャージ後のセリフ」のように、母数の単位が異なる
+ * 複数の独立した証拠源を機種ごとに好きなだけ持てる。グループ同士は互いに独立(同時に
+ * 起こり得る)とみなし、それぞれ別の多項分布として評価した対数尤度を合算する。
+ */
+export interface CounterGroup {
+  id: string;
+  label: string;
+  /** 母数の単位(例: "総ゲーム数", "激走チャージ回数")。UIの入力欄ラベルに使う。 */
+  unitLabel: string;
+  /** グループ内で排他なカテゴリ一覧。 */
+  categories: CounterCategory[];
+}
+
+/** 「Nこの母数のうち、カテゴリごとに何回当選したか」の集計入力(特定の CounterGroup に対応)。 */
+export interface CounterObservation {
+  groupId: string;
+  trials: number;
+  /** カテゴリID(CounterCategory.id) -> 当選回数。 */
   counts: Record<string, number>;
 }
 
@@ -79,8 +95,8 @@ export interface Machine {
   triggers: Trigger[];
   types: BonusType[];
   outcomes: Outcome[];
-  /** 総ゲーム数×当選回数による判別に使うカテゴリ別確率(任意)。 */
-  bonusRates?: BonusRate[];
+  /** カウントベースの証拠源(任意)。複数持てる(例: ボーナス合算、5枚役、激走チャージ後セリフ)。 */
+  counterGroups?: CounterGroup[];
   /** UIに表示する機種固有の注意点(任意)。例: ARTの区切り方によるゲーム数記録のコツなど。 */
   notes?: string[];
   /** 「設定差ポイント」ページに表示する参考情報(任意)。判別計算には使わない読み物データ。 */

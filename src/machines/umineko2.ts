@@ -1,5 +1,5 @@
 import type { Machine } from '../engine/types';
-import { bonusRatesFromDenominatorTable, outcomesFromDenominatorTable } from '../engine/authoring';
+import { counterCategoriesFromDenominatorTable, outcomesFromDenominatorTable } from '../engine/authoring';
 
 // =============================================================================
 // うみねこのなく頃に2 設定判別データ
@@ -12,7 +12,7 @@ import { bonusRatesFromDenominatorTable, outcomesFromDenominatorTable } from '..
 // 1. outcomes(表3: 契機×種別の複合確率) — 「ボーナスを1回引いたとき、それがどの
 //    契機×種別だったか」の条件付き分布。1/N をそのまま並べ、outcomesFromDenominatorTable が
 //    設定ごとに合計1へ自動正規化する。
-// 2. bonusRates(表1: BIG合算/REG合算) — 「総ゲーム数のうちBIG/REGが何回出たか」を
+// 2. counterGroups(表1: BIG合算/REG合算) — 「総ゲーム数のうちBIG/REGが何回出たか」を
 //    多項分布の尤度として使う、ボーナス出現ペースそのものによる判別。
 //
 // 表2(種別ごとの合算)は表3の周辺確率(行の合計)にあたるため、表3を過不足なく入力すれば
@@ -40,7 +40,7 @@ const triggers = [
   { id: 'replay', label: 'リプレイ' },
 ];
 
-// ボーナス種別(色/タイプ)。category は bonusRates(下記)の id に対応し、
+// ボーナス種別(色/タイプ)。category は counterGroups(下記)内カテゴリの id に対応し、
 // 総ゲーム数評価(SpinTally)のカテゴリ当選回数を観測から自動集計するために使う。
 const types = [
   { id: 'kogane_aka', label: '黄金郷ボーナス(赤赤赤)', category: 'big' },
@@ -119,13 +119,20 @@ const outcomes = outcomesFromDenominatorTable(settings, {
   'replay|reg_shiroao': [13107.2, 10922.7, 9362.3, 8192.0, 7281.8, 6553.6], // 判別力が高い
 });
 
-// 総ゲーム数×当選回数による判別用のカテゴリ別確率(1/N。Nは分母)。
+// 総ゲーム数×当選回数による判別用のカウントグループ(1/N。Nは分母)。
 // BIG合算・REG合算は排他(同じゲームで同時には起こらない)なので、
 // 残り(いずれにも当選しなかったゲーム)は自動的に計算される。
-const bonusRates = bonusRatesFromDenominatorTable(settings, {
-  big: { label: 'BIG合算', denominators: [362.1, 350.5, 337.8, 327.7, 319.7, 313.6] },
-  reg: { label: 'REG合算', denominators: [397.2, 390.1, 381.0, 374.5, 366.1, 360.1] },
-});
+const counterGroups = [
+  {
+    id: 'bonus',
+    label: 'ボーナス',
+    unitLabel: '総ゲーム数',
+    categories: counterCategoriesFromDenominatorTable(settings, {
+      big: { label: 'BIG合算', denominators: [362.1, 350.5, 337.8, 327.7, 319.7, 313.6] },
+      reg: { label: 'REG合算', denominators: [397.2, 390.1, 381.0, 374.5, 366.1, 360.1] },
+    }),
+  },
+] satisfies Machine['counterGroups'];
 
 // UIに表示する機種固有の注意点。
 const notes = [
@@ -263,7 +270,7 @@ export const umineko2: Machine = {
   triggers,
   types,
   outcomes,
-  bonusRates,
+  counterGroups,
   notes,
   referencePoints,
 };

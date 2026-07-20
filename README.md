@@ -1,7 +1,8 @@
 # スロット設定判別ツール
 
-パチスロの設定(設定1〜6)を、観測したボーナスからベイズ推定で判別するWebアプリです。
-現在は「うみねこのなく頃に2」に対応しています。
+パチスロの設定(設定1〜6)を、観測した事象からベイズ推定で判別するWebアプリです。
+現在「うみねこのなく頃に2」「少女☆歌劇 レヴュースタァライト」「モンキーターンV」に対応しています。
+ヘッダーのハンバーガーメニューから機種を切り替えられます。
 
 **公開URL**: https://slot-lyart.vercel.app
 
@@ -23,6 +24,13 @@
 
 上記の詳細な記録とは別に、ページ下部の「簡易設定推測」では**総ゲーム数**・**BIG回数**・**REG回数**だけを
 入力して大まかに判定できます。1件ずつボーナスを記録する時間がないときや、途中経過をざっくり知りたいときに使えます。
+
+### モンキーターンVなど、ボーナス種別の無い機種について
+
+モンキーターンVはBIG/REGのような伝統的なボーナス種別を持たないAT機のため、上記の「ボーナス追加」の
+流れはありません。代わりに「AT初当たり」「5枚役」「激走チャージ後セリフ」など、母数(総ゲーム数・
+激走チャージ回数など)が異なる複数の判別要素をそれぞれ直接入力する「設定推測」欄が常時表示され、
+入力した要素だけが自動的に合算されて1つの結果になります。
 
 ### 投資・回収の記録と履歴
 
@@ -74,11 +82,17 @@ Vercelにデプロイ済みです(プロジェクト: `panime/slot`)。GitHubリ
 
 ### データの出典
 
-「うみねこのなく頃に2」の設定判別データ(契機×種別の複合確率、BIG/REG合算確率など)は、
-以下の公開スペック情報を基にしています。詳細は [src/machines/umineko2.ts](src/machines/umineko2.ts) のコメントを参照してください。
+各機種の設定判別データは、以下の公開スペック情報を基にしています。詳細は各機種データファイルの
+コメントを参照してください(仮の値を当てている項目がある場合はコメントで明記しています)。
 
-- なな徹: https://nana-press.com/kaiseki/machine/1089/34695/
-- DMMぱちタウン: https://p-town.dmm.com/machines/4925
-
-なお、出典に具体値の記載がなく仮の値を当てている項目(REGの一部の列など)がある点も
-`umineko2.ts` にコメントで明記しています。
+- **うみねこのなく頃に2** — [src/machines/umineko2.ts](src/machines/umineko2.ts)
+  - なな徹: https://nana-press.com/kaiseki/machine/1089/34695/
+  - DMMぱちタウン: https://p-town.dmm.com/machines/4925
+- **少女☆歌劇 レヴュースタァライト** — [src/machines/starlight.ts](src/machines/starlight.ts)
+  - なな徹: https://nana-press.com/post/1626451 、https://nana-press.com/kaiseki/machine/886/27699/
+  - DMMぱちタウン: https://p-town.dmm.com/machines/4706
+  - パチセブン: https://pachiseven.jp/machines/7105
+- **モンキーターンV** — [src/machines/monkeyturn.ts](src/machines/monkeyturn.ts)
+  - なな徹: https://nana-press.com/kaiseki/machine/644/18015/
+  - altema: https://altema.jp/pachimo/lmonkeygomaiyaku
+  - DMMぱちタウン: https://p-town.dmm.com/machines/4450

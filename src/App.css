@@ -228,6 +228,18 @@ details.quick {
   min-width: 100px;
 }
 
+.quick-group {
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--field, #fff);
+  border: 1px solid var(--border, #e2e2e5);
+  border-radius: 10px;
+}
+
+.quick-group .quick-total {
+  margin-bottom: 10px;
+}
+
 .result-head {
   display: flex;
   align-items: center;

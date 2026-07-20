@@ -1,5 +1,5 @@
 import type { Machine } from '../engine/types';
-import { bonusRatesFromDenominatorTable, outcomesFromPercentTable } from '../engine/authoring';
+import { counterCategoriesFromDenominatorTable, outcomesFromPercentTable } from '../engine/authoring';
 
 // =============================================================================
 // 少女☆歌劇 レヴュースタァライト -The SLOT-(オーイズミ、スマスロ) 設定判別データ
@@ -13,7 +13,7 @@ import { bonusRatesFromDenominatorTable, outcomesFromPercentTable } from '../eng
 //
 // うみねこ2と違い、この機種は比較的新しく契機×種別(表3のような細かい複合確率)の
 // 解析データがまだ薄いため、outcomes は【プレースホルダー(要差し替え)】のまま。
-// 一方 bonusRates(赤7BIG/青7BIG/REG合算)は複数サイトで裏付けの取れた実数値。
+// 一方 counterGroups(赤7BIG/青7BIG/REG合算)は複数サイトで裏付けの取れた実数値。
 // CZ確率・AT初当たり確率など、計算に組み込めない(CZはボーナスと排他でないため)が
 // 有用な情報は referencePoints(設定差ポイントページ)にまとめている。
 // =============================================================================
@@ -48,15 +48,22 @@ const outcomes = outcomesFromPercentTable(settings, {
   'kirameki|reg': [5, 5, 6, 7, 7, 8],
 });
 
-// 総ゲーム数×当選回数による判別用のカテゴリ別確率(1/N。Nは分母)。
+// 総ゲーム数×当選回数による判別用のカウントグループ(1/N。Nは分母)。
 // 赤7BIG・青7BIG・REGの逆数の和が公開されている「ボーナス合算」と一致することを確認済み
 // (例: 設定1 = 1/583.0 + 1/479.0 + 1/621.9 ≒ 1/184.8)。実データ。
 // 設定3のみ、出典に掲載が無いため設定2・4の中間で線形補間した推定値。
-const bonusRates = bonusRatesFromDenominatorTable(settings, {
-  aka7: { label: '赤7BIG', denominators: [583.0, 582.6, 583.3, 584.0, 583.3, 585.8] },
-  ao7: { label: '青7BIG', denominators: [479.0, 472.3, 456.2, 440.0, 428.9, 421.8] },
-  reg: { label: 'REG', denominators: [621.9, 604.3, 565.3, 526.3, 499.7, 465.0] },
-});
+const counterGroups = [
+  {
+    id: 'bonus',
+    label: 'ボーナス',
+    unitLabel: '総ゲーム数',
+    categories: counterCategoriesFromDenominatorTable(settings, {
+      aka7: { label: '赤7BIG', denominators: [583.0, 582.6, 583.3, 584.0, 583.3, 585.8] },
+      ao7: { label: '青7BIG', denominators: [479.0, 472.3, 456.2, 440.0, 428.9, 421.8] },
+      reg: { label: 'REG', denominators: [621.9, 604.3, 565.3, 526.3, 499.7, 465.0] },
+    }),
+  },
+] satisfies Machine['counterGroups'];
 
 const referencePoints = [
   {
@@ -185,6 +192,6 @@ export const starlight: Machine = {
   triggers,
   types,
   outcomes,
-  bonusRates,
+  counterGroups,
   referencePoints,
 };
