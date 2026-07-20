@@ -1,15 +1,21 @@
 import type { Machine } from '../engine/types';
-import { outcomesFromPercentTable } from '../engine/authoring';
+import { outcomesFromDenominatorTable } from '../engine/authoring';
 
 // =============================================================================
 // うみねこのなく頃に2 設定判別データ
 //
-// ⚠️ 数値はすべて【プレースホルダー(要差し替え)】です。
-//    実機のスペック値に置き換えてください。差し替えるのは基本的に下の
-//    percent table(各行の6つの数字 = 設定1〜6 の%)だけでOKです。
+// 出典: なな徹 (https://nana-press.com/kaiseki/machine/1089/34695/)、
+//       DMMぱちタウン (https://p-town.dmm.com/machines/4925)
 //
-// モデル: 「ボーナスを1回引いたとき、その内訳(契機×種別)がこの組み合わせに
-//         なる割合(%)」。各設定(=各列)で合計100%になるようにします。
+// モデル: 「契機×種別の複合確率(1/N。Nは分母)」をそのまま並べ、設定ごとに
+//         全 outcome の合計が1になるよう正規化する(outcomesFromDenominatorTable が実施)。
+//         これは「ボーナスが1回起きたとき、それがどの契機×種別だったか」の
+//         条件付き分布に相当する。
+//
+// 表1(BIG合算/REG合算)・表2(種別ごとの合算)は、表3(契機×種別の複合確率)の
+// 周辺確率(行/列の合計)にあたるため、表3を過不足なく入力すれば重複計上にならない。
+// 出典側の丸め由来で厳密な合算一致は取れない(数%程度のズレ)が、判別用途としては
+// 表3の相対値がそのまま活きるため実装上は無視してよい。
 // =============================================================================
 
 const settings = ['1', '2', '3', '4', '5', '6'];
@@ -17,33 +23,97 @@ const settings = ['1', '2', '3', '4', '5', '6'];
 // 当選契機。id は table のキーに使う。label は画面表示。
 const triggers = [
   { id: 'tanpin', label: '単独' },
-  { id: 'cherry_weak', label: '弱チェリー' },
-  { id: 'cherry_strong', label: '強チェリー' },
-  { id: 'suika', label: 'スイカ' },
-  { id: 'chance', label: 'チャンス目' },
+  { id: 'kyotsu_bell', label: '共通ベル' },
+  { id: 'suika_a', label: 'スイカA' },
+  { id: 'suika_b', label: 'スイカB' },
+  { id: 'ichimai_a', label: '1枚役A' },
+  { id: 'ichimai_b', label: '1枚役B' },
+  { id: 'ichimai_c', label: '1枚役C' },
+  { id: 'cherry', label: 'チェリー' },
+  { id: 'kakutei_a', label: '確定役A' },
+  { id: 'kakutei_b', label: '確定役B' },
+  { id: 'reach_replay_a', label: 'リーチ目リプレイA' },
+  { id: 'reach_replay_b', label: 'リーチ目リプレイB' },
+  { id: 'reach_replay_c', label: 'リーチ目リプレイC' },
+  { id: 'replay', label: 'リプレイ' },
 ];
 
-// ボーナス種別。
+// ボーナス種別(色/タイプ)。
 const types = [
-  { id: 'big_red', label: '赤7BIG' },
-  { id: 'big_blue', label: '青7BIG' },
-  { id: 'reg', label: 'REG' },
+  { id: 'kogane_aka', label: '黄金郷ボーナス(赤赤赤)' },
+  { id: 'kogane_shiro', label: '黄金郷ボーナス(白白白)' },
+  { id: 'witch_akashiro', label: 'WITCHボーナス(赤赤白)' },
+  { id: 'witch_shiroaka', label: 'WITCHボーナス(白白赤)' },
+  { id: 'reg_akaao', label: 'REG(赤赤青)' },
+  { id: 'reg_shiroao', label: 'REG(白白青)' },
 ];
 
-// 契機×種別ごとの出現割合(%)。並びは settings(設定1〜6)の順。
-// キーは "triggerId|typeId"。存在しない組み合わせは行を書かなければよい。
-const outcomes = outcomesFromPercentTable(settings, {
-  'tanpin|big_red': [20, 20, 19, 19, 18, 18],
-  'tanpin|big_blue': [10, 11, 12, 13, 14, 16],
-  'tanpin|reg': [8, 8, 8, 9, 9, 10],
-  'cherry_weak|big_red': [9, 9, 9, 8, 8, 7],
-  'cherry_weak|reg': [7, 7, 7, 7, 7, 7],
-  'cherry_strong|big_red': [6, 6, 6, 6, 6, 6],
-  'cherry_strong|big_blue': [6, 6, 6, 6, 6, 5],
-  'suika|big_red': [10, 10, 10, 10, 10, 10],
-  'suika|reg': [6, 6, 6, 6, 6, 6],
-  'chance|big_blue': [8, 7, 7, 6, 6, 5],
-  'chance|reg': [10, 10, 10, 10, 10, 10],
+// 全設定でほぼ変化がなく判別に使えない列は、出典に明記されているとおり
+// 1/16384.0(全設定共通)として扱う。
+const FLAT = [16384, 16384, 16384, 16384, 16384, 16384];
+
+// 契機×種別ごとの複合確率(1/N。Nは分母)。並びは settings(設定1〜6)の順。
+// null はその設定でその組み合わせが起こらない(=対象外)ことを表す。
+const outcomes = outcomesFromDenominatorTable(settings, {
+  // --- 黄金郷ボーナス(赤赤赤) ---
+  'kyotsu_bell|kogane_aka': FLAT,
+  'suika_b|kogane_aka': FLAT,
+  'ichimai_a|kogane_aka': FLAT,
+  'ichimai_c|kogane_aka': [16384.0, 13107.2, 10922.7, 9362.3, 8192.0, 7281.8], // 判別に使える
+  'kakutei_b|kogane_aka': FLAT,
+  'reach_replay_b|kogane_aka': FLAT,
+
+  // --- 黄金郷ボーナス(白白白) ---
+  'tanpin|kogane_shiro': FLAT,
+  'suika_a|kogane_shiro': [13107.2, 13107.2, 13107.2, 13107.2, 13107.2, 13107.2], // 全設定同値
+  'ichimai_b|kogane_shiro': [7281.8, 6553.6, 5957.8, 5461.3, 5041.2, 4681.1], // 判別に使える
+  'cherry|kogane_shiro': FLAT,
+
+  // --- WITCHボーナス(赤赤白) ---
+  'tanpin|witch_akashiro': FLAT,
+  'kyotsu_bell|witch_akashiro': FLAT,
+  'suika_a|witch_akashiro': FLAT,
+  'suika_b|witch_akashiro': FLAT,
+  'ichimai_a|witch_akashiro': FLAT,
+  'cherry|witch_akashiro': FLAT,
+  'reach_replay_a|witch_akashiro': FLAT,
+  'reach_replay_b|witch_akashiro': FLAT,
+  'ichimai_b|witch_akashiro': [5957.8, 5461.3, 5041.2, 4681.1, 4681.1, 4681.1], // 判別に使える
+  'ichimai_c|witch_akashiro': [5041.2, 4681.1, 4369.1, 4096.0, 3855.1, 3640.9], // 判別に使える
+  'kakutei_a|witch_akashiro': [16384.0, 13107.2, 10922.7, 9362.3, 8192.0, 7281.8], // 最も判別力が高い
+
+  // --- WITCHボーナス(白白赤) ---
+  'tanpin|witch_shiroaka': FLAT,
+  'kyotsu_bell|witch_shiroaka': FLAT,
+  'suika_a|witch_shiroaka': FLAT,
+  'kakutei_b|witch_shiroaka': FLAT,
+  'replay|witch_shiroaka': FLAT,
+  'cherry|witch_shiroaka': FLAT,
+  'reach_replay_c|witch_shiroaka': FLAT,
+  'ichimai_a|witch_shiroaka': [4681.1, 4681.1, 4681.1, 4681.1, 4681.1, 4681.1], // 全設定同値(判別不可)
+  'ichimai_b|witch_shiroaka': [5041.2, 4681.1, 4369.1, 4096.0, 4096.0, 4096.0], // 判別に使える(やや弱い)
+  'ichimai_c|witch_shiroaka': [5461.3, 5461.3, 5041.2, 5041.2, 4681.1, 4681.1], // 判別に使える(やや弱い)
+
+  // --- REG(赤赤青) ---
+  // 単独/スイカA/1枚役A/1枚役Bは出典で「ほぼ変化なし」とのみ記載され具体値が無いため、
+  // 他の非判別列と同じ1/16384.0を仮値として置いている(判別力を持たない前提なので影響は軽微)。
+  'tanpin|reg_akaao': FLAT,
+  'suika_a|reg_akaao': FLAT,
+  'ichimai_a|reg_akaao': FLAT,
+  'ichimai_b|reg_akaao': FLAT,
+  'kyotsu_bell|reg_akaao': [4681.1, 4369.1, 4096.0, 3855.1, 3640.9, 3449.3], // 判別に使える
+  'ichimai_c|reg_akaao': [3640.9, 3640.9, 3449.3, 3449.3, 3276.8, 3276.8], // 判別に使える
+  'replay|reg_akaao': [13107.2, 10922.7, 9362.3, 8192.0, 7281.8, 6553.6], // 判別力が高い
+
+  // --- REG(白白青) ---
+  // 単独/共通ベル/スイカA/1枚役A/1枚役B/1枚役Cも同様に具体値が無いため仮値(1/16384.0)。
+  'tanpin|reg_shiroao': FLAT,
+  'kyotsu_bell|reg_shiroao': FLAT,
+  'suika_a|reg_shiroao': FLAT,
+  'ichimai_a|reg_shiroao': FLAT,
+  'ichimai_b|reg_shiroao': FLAT,
+  'ichimai_c|reg_shiroao': FLAT,
+  'replay|reg_shiroao': [13107.2, 10922.7, 9362.3, 8192.0, 7281.8, 6553.6], // 判別力が高い
 });
 
 export const umineko2: Machine = {

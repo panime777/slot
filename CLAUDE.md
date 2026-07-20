@@ -25,7 +25,10 @@ npm run lint     # oxlint
 - `src/engine/` — 判別エンジン。ここに機種固有の知識を入れない
   - `types.ts` — Machine / Trigger / BonusType / Outcome / Observation などの型
   - `bayes.ts` — `computePosterior(machine, observations, prior?)`。対数空間でベイズ計算
-  - `authoring.ts` — `outcomesFromPercentTable`(表からデータ生成)/ `validateMachine`(合計100%チェック)
+  - `authoring.ts` — 表からデータ生成するヘルパー2種 / `validateMachine`(合計100%チェック)
+    - `outcomesFromPercentTable` — 各設定の出現割合(%)が既にわかっている場合
+    - `outcomesFromDenominatorTable` — 実機スペックによくある「1/N」の生データをそのまま渡せる版。
+      設定ごとに自動正規化するので % 換算が不要(umineko2.ts はこちらを使用)
 - `src/machines/` — 機種データ
   - `umineko2.ts` — うみねこ2のデータ
   - `index.ts` — 対応機種の登録簿
@@ -37,11 +40,16 @@ npm run lint     # oxlint
 総回転数や小役カウントが不要なぶん手軽。各設定について、全 Outcome の確率合計は 1(=100%)になる。
 各観測の尤度ベクトルを掛け合わせ、事前分布(既定は均等 1/6)を掛けて正規化 → 事後確率。
 
-## データについて(重要)
+## データについて
 
-現在 `umineko2.ts` の数値は**すべてプレースホルダー(要差し替え)**。
-実スペック値に置き換える際は、基本的に `outcomesFromPercentTable` に渡す表(各行の6数字 = 設定1〜6 の%)だけを編集すればよい。
-`validateMachine` が各設定の合計が100%かを開発時に警告する。
+`umineko2.ts` は、なな徹(nana-press.com)・DMMぱちタウンの公開スペック値を基に実装済み。
+契機14種 × 種別6種(黄金郷赤/白、WITCH赤白/白赤、REG赤/白)の複合確率(1/N)をそのまま入力し、
+`outcomesFromDenominatorTable` が設定ごとに自動正規化する。
+
+出典側の「ほぼ変化なし」とだけ記載され具体値のない一部REG列(単独/共通ベル/スイカA/1枚役A/B/C)は
+仮に1/16384.0を当てている(判別力を持たない前提のため計算への影響は軽微)。より正確な値が
+判明したら `umineko2.ts` 内の該当コメント箇所を差し替える。
+`validateMachine` は正規化により常に合計100%になるはずなので、警告が出た場合はロジック側のバグを疑う。
 
 ## 今後の拡張候補
 
