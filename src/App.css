@@ -99,6 +99,49 @@ section {
   margin-top: 12px;
 }
 
+.quick h2 {
+  margin-bottom: 8px;
+}
+
+.quick .desc {
+  font-size: 0.85rem;
+  opacity: 0.75;
+  margin: 0 0 12px;
+}
+
+.quick label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.quick-total {
+  margin-bottom: 12px;
+}
+
+.quick input {
+  font-size: 1rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #ccc);
+  background: var(--field, #fff);
+  color: inherit;
+  width: 100%;
+}
+
+.quick-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.quick-counts label {
+  flex: 1;
+  min-width: 100px;
+}
+
 .result-head {
   display: flex;
   align-items: center;

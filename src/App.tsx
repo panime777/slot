@@ -1,9 +1,29 @@
 import { useMemo, useState } from 'react';
 import { computePosterior, deriveSpinTally } from './engine/bayes';
 import { validateMachine } from './engine/authoring';
-import type { Observation } from './engine/types';
+import type { Observation, PosteriorEntry } from './engine/types';
 import { machines, getMachine } from './machines';
 import './App.css';
+
+function PosteriorBars({ posterior }: { posterior: PosteriorEntry[] }) {
+  const sorted = [...posterior].sort((a, b) => b.probability - a.probability);
+  return (
+    <ul className="bars">
+      {sorted.map((e) => (
+        <li key={e.setting}>
+          <span className="s-label">設定{e.setting}</span>
+          <span className="bar-track">
+            <span
+              className="bar-fill"
+              style={{ width: `${(e.probability * 100).toFixed(1)}%` }}
+            />
+          </span>
+          <span className="s-pct">{(e.probability * 100).toFixed(1)}%</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function App() {
   const [machineId, setMachineId] = useState(machines[0].id);
@@ -14,7 +34,7 @@ export default function App() {
   const [triggerId, setTriggerId] = useState(machine.triggers[0].id);
   const [typeId, setTypeId] = useState(machine.types[0].id);
 
-  // これまでに観測したボーナス一覧(契機・種別・その時点の総ゲーム数)。
+  // これまでに観測したボーナス一覧(契機・種別・その時点の当選ゲーム数)。
   const [observations, setObservations] = useState<Observation[]>([]);
 
   // 総ゲーム数評価は observations から自動算出する(手入力の集計欄は持たない)。
@@ -26,6 +46,31 @@ export default function App() {
   const { posterior, skipped } = useMemo(
     () => computePosterior(machine, observations, { spinTally }),
     [machine, observations, spinTally],
+  );
+
+  // 簡易設定推測: 詳細なボーナス記録とは別に、総ゲーム数とBIG/REG回数だけで判定する。
+  const [quickTotalSpins, setQuickTotalSpins] = useState('');
+  const [quickCounts, setQuickCounts] = useState<Record<string, string>>({});
+
+  const quickSpinTally = useMemo(() => {
+    const spins = Number(quickTotalSpins);
+    if (!spins || spins <= 0) return undefined;
+    const counts: Record<string, number> = {};
+    for (const r of machine.bonusRates ?? []) {
+      counts[r.id] = Number(quickCounts[r.id]) || 0;
+    }
+    return { totalSpins: spins, counts };
+  }, [quickTotalSpins, quickCounts, machine]);
+
+  const quickCountSum = (machine.bonusRates ?? []).reduce(
+    (sum, r) => sum + (Number(quickCounts[r.id]) || 0),
+    0,
+  );
+  const quickOverCounted = quickSpinTally != null && quickCountSum > quickSpinTally.totalSpins;
+
+  const quickPosterior = useMemo(
+    () => (quickSpinTally ? computePosterior(machine, [], { spinTally: quickSpinTally }) : null),
+    [machine, quickSpinTally],
   );
 
   // 開発時のみデータ健全性を警告。
@@ -57,6 +102,9 @@ export default function App() {
 
   const sorted = [...posterior].sort((a, b) => b.probability - a.probability);
   const topSetting = sorted[0];
+  const quickTop = quickPosterior
+    ? [...quickPosterior.posterior].sort((a, b) => b.probability - a.probability)[0]
+    : null;
 
   return (
     <div className="app">
@@ -71,6 +119,8 @@ export default function App() {
             setTriggerId(m.triggers[0].id);
             setTypeId(m.types[0].id);
             setObservations([]);
+            setQuickTotalSpins('');
+            setQuickCounts({});
           }}
         >
           {machines.map((m) => (
@@ -94,7 +144,7 @@ export default function App() {
 
       <section className="input">
         <label className="game-count">
-          総ゲーム数(このボーナス成立時点)
+          当選ゲーム数
           <input
             type="number"
             min="1"
@@ -131,14 +181,14 @@ export default function App() {
         </button>
         {gameCountOutOfOrder && (
           <p className="hint">
-            ※ 直近の記録({latestGameCount}G)より前のゲーム数です。入力を確認してください。
+            ※ 直近の記録({latestGameCount}G)より前の当選ゲーム数です。入力を確認してください。
           </p>
         )}
         {machine.bonusRates && machine.bonusRates.length > 0 && (
           <p className="hint tip">
-            うみねこ2は完走型ARTのため、ART中に当選したボーナスは総ゲーム数が分かりにくいことがあります。
+            うみねこ2は完走型ARTのため、ART中に当選したボーナスは当選ゲーム数が分かりにくいことがあります。
             本体オプションでWITCHランプを「一発告知」にしておくと当選した瞬間が分かるので、
-            総ゲーム数を正確に記録でき判別精度が上がります。
+            当選ゲーム数を正確に記録でき判別精度が上がります。
           </p>
         )}
       </section>
@@ -156,20 +206,7 @@ export default function App() {
             {(topSetting.probability * 100).toFixed(1)}%）
           </p>
         )}
-        <ul className="bars">
-          {sorted.map((e) => (
-            <li key={e.setting}>
-              <span className="s-label">設定{e.setting}</span>
-              <span className="bar-track">
-                <span
-                  className="bar-fill"
-                  style={{ width: `${(e.probability * 100).toFixed(1)}%` }}
-                />
-              </span>
-              <span className="s-pct">{(e.probability * 100).toFixed(1)}%</span>
-            </li>
-          ))}
-        </ul>
+        <PosteriorBars posterior={posterior} />
         {spinTally && (
           <p className="hint">
             総ゲーム数評価: {spinTally.totalSpins}G中
@@ -205,6 +242,58 @@ export default function App() {
           ))}
         </ol>
       </section>
+
+      {machine.bonusRates && machine.bonusRates.length > 0 && (
+        <section className="quick">
+          <h2>簡易設定推測</h2>
+          <p className="desc">
+            ボーナスを1件ずつ記録しなくても、総ゲーム数とBIG/REGの回数だけで大まかに判定できます。
+            上の詳細な記録とは別の、独立した簡易ツールです。
+          </p>
+          <label className="quick-total">
+            総ゲーム数
+            <input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              placeholder="例: 3000"
+              value={quickTotalSpins}
+              onChange={(e) => setQuickTotalSpins(e.target.value)}
+            />
+          </label>
+          <div className="quick-counts">
+            {machine.bonusRates.map((r) => (
+              <label key={r.id}>
+                {r.label}
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={quickCounts[r.id] ?? ''}
+                  onChange={(e) =>
+                    setQuickCounts((prev) => ({ ...prev, [r.id]: e.target.value }))
+                  }
+                />
+              </label>
+            ))}
+          </div>
+          {quickOverCounted && (
+            <p className="hint">※ 当選回数の合計が総ゲーム数を超えています。</p>
+          )}
+          {quickPosterior && quickTop ? (
+            <>
+              <p className="top">
+                最有力: <strong>設定{quickTop.setting}</strong>（
+                {(quickTop.probability * 100).toFixed(1)}%）
+              </p>
+              <PosteriorBars posterior={quickPosterior.posterior} />
+            </>
+          ) : (
+            <p className="hint">総ゲーム数を入力すると各設定の確率が出ます。</p>
+          )}
+        </section>
+      )}
     </div>
   );
 }
