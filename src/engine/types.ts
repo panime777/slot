@@ -28,6 +28,25 @@ export interface Outcome {
   probBySetting: Record<SettingId, number>;
 }
 
+/**
+ * 「1ゲームあたりこのカテゴリに当選する確率」を設定ごとに持つ。
+ * 契機×種別の内訳とは独立な、第二の証拠源(総ゲーム数と当選回数)に使う。
+ * 例: BIG合算・REG合算のように、カテゴリ同士は排他(同じゲームで同時に起こらない)を想定。
+ */
+export interface BonusRate {
+  id: string;
+  label: string;
+  /** 設定ID -> 1ゲームあたりの当選確率(0〜1)。 */
+  probBySetting: Record<SettingId, number>;
+}
+
+/** 「Nゲーム回して、カテゴリごとに何回当選したか」の集計入力。 */
+export interface SpinTally {
+  totalSpins: number;
+  /** カテゴリID(BonusRate.id) -> 当選回数。 */
+  counts: Record<string, number>;
+}
+
 /** 1機種の判別に必要なデータ一式。 */
 export interface Machine {
   id: string;
@@ -36,6 +55,8 @@ export interface Machine {
   triggers: Trigger[];
   types: BonusType[];
   outcomes: Outcome[];
+  /** 総ゲーム数×当選回数による判別に使うカテゴリ別確率(任意)。 */
+  bonusRates?: BonusRate[];
 }
 
 /** ユーザーが観測した1回のボーナス。 */

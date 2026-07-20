@@ -16,9 +16,29 @@ export default function App() {
   // これまでに観測したボーナス一覧。
   const [observations, setObservations] = useState<Observation[]>([]);
 
+  // 総ゲーム数×当選回数(文字列で保持し、空欄を扱いやすくする)。
+  const [totalSpins, setTotalSpins] = useState('');
+  const [bonusCounts, setBonusCounts] = useState<Record<string, string>>({});
+
+  const spinTally = useMemo(() => {
+    const spins = Number(totalSpins);
+    if (!spins || spins <= 0) return undefined;
+    const counts: Record<string, number> = {};
+    for (const r of machine.bonusRates ?? []) {
+      counts[r.id] = Number(bonusCounts[r.id]) || 0;
+    }
+    return { totalSpins: spins, counts };
+  }, [totalSpins, bonusCounts, machine]);
+
+  const bonusCountSum = (machine.bonusRates ?? []).reduce(
+    (sum, r) => sum + (Number(bonusCounts[r.id]) || 0),
+    0,
+  );
+  const spinsOverCounted = spinTally != null && bonusCountSum > spinTally.totalSpins;
+
   const { posterior, skipped } = useMemo(
-    () => computePosterior(machine, observations),
-    [machine, observations],
+    () => computePosterior(machine, observations, { spinTally }),
+    [machine, observations, spinTally],
   );
 
   // 開発時のみデータ健全性を警告。
@@ -54,6 +74,8 @@ export default function App() {
             setTriggerId(m.triggers[0].id);
             setTypeId(m.types[0].id);
             setObservations([]);
+            setTotalSpins('');
+            setBonusCounts({});
           }}
         >
           {machines.map((m) => (
@@ -103,13 +125,52 @@ export default function App() {
         </button>
       </section>
 
+      {machine.bonusRates && machine.bonusRates.length > 0 && (
+        <section className="spins">
+          <h2>総ゲーム数から判定</h2>
+          <label className="spins-total">
+            総ゲーム数
+            <input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              placeholder="例: 3000"
+              value={totalSpins}
+              onChange={(e) => setTotalSpins(e.target.value)}
+            />
+          </label>
+          <div className="spins-counts">
+            {machine.bonusRates.map((r) => (
+              <label key={r.id}>
+                {r.label}
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={bonusCounts[r.id] ?? ''}
+                  onChange={(e) =>
+                    setBonusCounts((prev) => ({ ...prev, [r.id]: e.target.value }))
+                  }
+                />
+              </label>
+            ))}
+          </div>
+          {spinsOverCounted && (
+            <p className="hint">※ 当選回数の合計が総ゲーム数を超えています。</p>
+          )}
+        </section>
+      )}
+
       <section className="result">
         <div className="result-head">
           <h2>設定判別</h2>
           <span className="count">{observations.length} 件</span>
         </div>
-        {observations.length === 0 ? (
-          <p className="hint">ボーナスを追加すると各設定の確率が出ます。</p>
+        {observations.length === 0 && !spinTally ? (
+          <p className="hint">
+            ボーナスを追加するか、総ゲーム数を入力すると各設定の確率が出ます。
+          </p>
         ) : (
           <p className="top">
             最有力: <strong>設定{topSetting.setting}</strong>（

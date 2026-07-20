@@ -1,7 +1,8 @@
 # スロット設定判別ツール
 
 パチスロの設定判別(設定1〜6のどれか)を、観測した事象から**ベイズ推定**で行うWebアプリ。
-第一弾は「うみねこのなく頃に2」。ボーナスの**当選契機×種別**を入力すると各設定の事後確率が出る。
+第一弾は「うみねこのなく頃に2」。ボーナスの**当選契機×種別**、および**総ゲーム数×当選回数**を
+入力すると各設定の事後確率が出る(両方入れれば証拠として組み合わさる)。
 
 ## 技術構成
 
@@ -23,22 +24,29 @@ npm run lint     # oxlint
 **エンジン(機種非依存)とデータ(機種固有)を分離**している。機種を増やすときはデータを足すだけ。
 
 - `src/engine/` — 判別エンジン。ここに機種固有の知識を入れない
-  - `types.ts` — Machine / Trigger / BonusType / Outcome / Observation などの型
-  - `bayes.ts` — `computePosterior(machine, observations, prior?)`。対数空間でベイズ計算
-  - `authoring.ts` — 表からデータ生成するヘルパー2種 / `validateMachine`(合計100%チェック)
-    - `outcomesFromPercentTable` — 各設定の出現割合(%)が既にわかっている場合
+  - `types.ts` — Machine / Trigger / BonusType / Outcome / Observation / BonusRate / SpinTally などの型
+  - `bayes.ts` — `computePosterior(machine, observations, { prior?, spinTally? })`。対数空間でベイズ計算
+  - `authoring.ts` — 表からデータ生成するヘルパー / `validateMachine`(合計100%チェック)
+    - `outcomesFromPercentTable` — 契機×種別の出現割合(%)が既にわかっている場合
     - `outcomesFromDenominatorTable` — 実機スペックによくある「1/N」の生データをそのまま渡せる版。
       設定ごとに自動正規化するので % 換算が不要(umineko2.ts はこちらを使用)
+    - `bonusRatesFromDenominatorTable` — BonusRate[](総ゲーム数判別用)を「1/N」表から作る
 - `src/machines/` — 機種データ
   - `umineko2.ts` — うみねこ2のデータ
   - `index.ts` — 対応機種の登録簿
-- `src/App.tsx` — UI(契機・種別を選んで観測を追加 → 事後確率バー表示)
+- `src/App.tsx` — UI(契機・種別を選んで観測を追加/総ゲーム数と回数を入力 → 事後確率バー表示)
 
 ## 判別モデル
 
-「**ボーナスを1回引いたときの内訳(契機×種別)の設定差**」を尤度に使う。
-総回転数や小役カウントが不要なぶん手軽。各設定について、全 Outcome の確率合計は 1(=100%)になる。
-各観測の尤度ベクトルを掛け合わせ、事前分布(既定は均等 1/6)を掛けて正規化 → 事後確率。
+証拠源は2つあり、両方を対数尤度の単純な足し算で組み合わせる(片方だけでも動く):
+
+1. **契機×種別の観測列**(`Observation[]`) — 「ボーナスを1回引いたときの内訳の設定差」を尤度に使う。
+   総回転数や小役カウントが不要なぶん手軽。各設定について、全 Outcome の確率合計は 1(=100%)になる。
+2. **総ゲーム数×カテゴリ別当選回数**(`SpinTally`、機種の `bonusRates` が必要) — 「1ゲームあたりの
+   当選確率(BIG合算・REG合算など)の設定差」を多項分布の尤度として使う。カテゴリ同士は排他
+   (同じゲームで同時に起こらない)前提。二項係数の項は全設定で共通の定数なので正規化で消えるため省略している。
+
+いずれも事前分布(既定は均等 1/6)を掛けて正規化 → 事後確率。数値安定性のため対数空間で計算する。
 
 ## データについて
 

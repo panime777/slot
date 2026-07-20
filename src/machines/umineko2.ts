@@ -1,5 +1,5 @@
 import type { Machine } from '../engine/types';
-import { outcomesFromDenominatorTable } from '../engine/authoring';
+import { bonusRatesFromDenominatorTable, outcomesFromDenominatorTable } from '../engine/authoring';
 
 // =============================================================================
 // うみねこのなく頃に2 設定判別データ
@@ -7,15 +7,17 @@ import { outcomesFromDenominatorTable } from '../engine/authoring';
 // 出典: なな徹 (https://nana-press.com/kaiseki/machine/1089/34695/)、
 //       DMMぱちタウン (https://p-town.dmm.com/machines/4925)
 //
-// モデル: 「契機×種別の複合確率(1/N。Nは分母)」をそのまま並べ、設定ごとに
-//         全 outcome の合計が1になるよう正規化する(outcomesFromDenominatorTable が実施)。
-//         これは「ボーナスが1回起きたとき、それがどの契機×種別だったか」の
-//         条件付き分布に相当する。
+// このデータは2つの独立した証拠源に対応する:
 //
-// 表1(BIG合算/REG合算)・表2(種別ごとの合算)は、表3(契機×種別の複合確率)の
-// 周辺確率(行/列の合計)にあたるため、表3を過不足なく入力すれば重複計上にならない。
-// 出典側の丸め由来で厳密な合算一致は取れない(数%程度のズレ)が、判別用途としては
-// 表3の相対値がそのまま活きるため実装上は無視してよい。
+// 1. outcomes(表3: 契機×種別の複合確率) — 「ボーナスを1回引いたとき、それがどの
+//    契機×種別だったか」の条件付き分布。1/N をそのまま並べ、outcomesFromDenominatorTable が
+//    設定ごとに合計1へ自動正規化する。
+// 2. bonusRates(表1: BIG合算/REG合算) — 「総ゲーム数のうちBIG/REGが何回出たか」を
+//    多項分布の尤度として使う、ボーナス出現ペースそのものによる判別。
+//
+// 表2(種別ごとの合算)は表3の周辺確率(行の合計)にあたるため、表3を過不足なく入力すれば
+// 重複計上にならない。出典側の丸め由来で厳密な合算一致は取れない(数%程度のズレ)が、
+// 判別用途としては表3の相対値がそのまま活きるため実装上は無視してよい。
 // =============================================================================
 
 const settings = ['1', '2', '3', '4', '5', '6'];
@@ -116,6 +118,14 @@ const outcomes = outcomesFromDenominatorTable(settings, {
   'replay|reg_shiroao': [13107.2, 10922.7, 9362.3, 8192.0, 7281.8, 6553.6], // 判別力が高い
 });
 
+// 総ゲーム数×当選回数による判別用のカテゴリ別確率(1/N。Nは分母)。
+// BIG合算・REG合算は排他(同じゲームで同時には起こらない)なので、
+// 残り(いずれにも当選しなかったゲーム)は自動的に計算される。
+const bonusRates = bonusRatesFromDenominatorTable(settings, {
+  big: { label: 'BIG合算', denominators: [362.1, 350.5, 337.8, 327.7, 319.7, 313.6] },
+  reg: { label: 'REG合算', denominators: [397.2, 390.1, 381.0, 374.5, 366.1, 360.1] },
+});
+
 export const umineko2: Machine = {
   id: 'umineko2',
   name: 'うみねこのなく頃に2',
@@ -123,4 +133,5 @@ export const umineko2: Machine = {
   triggers,
   types,
   outcomes,
+  bonusRates,
 };

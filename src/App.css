@@ -82,6 +82,43 @@ section {
   cursor: pointer;
 }
 
+.spins h2 {
+  margin-bottom: 12px;
+}
+
+.spins label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.spins-total {
+  margin-bottom: 12px;
+}
+
+.spins input,
+.spins-total input {
+  font-size: 1rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #ccc);
+  background: var(--field, #fff);
+  color: inherit;
+  width: 100%;
+}
+
+.spins-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.spins-counts label {
+  flex: 1;
+  min-width: 100px;
+}
+
 .result-head {
   display: flex;
   align-items: center;

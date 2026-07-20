@@ -1,4 +1,4 @@
-import type { Machine, Outcome, SettingId } from './types';
+import type { BonusRate, Machine, Outcome, SettingId } from './types';
 
 /**
  * データを「表」として書くための補助。
@@ -82,6 +82,33 @@ export function outcomesFromDenominatorTable(
       probBySetting[s] = totalBySetting[s] > 0 ? r.raw[s] / totalBySetting[s] : 0;
     }
     return { triggerId: r.triggerId, typeId: r.typeId, probBySetting };
+  });
+}
+
+/**
+ * 総ゲーム数×当選回数による判別(spinTally)用の BonusRate[] を、
+ * 「1/N」表記(N=分母)の表から作る。カテゴリ同士は排他(同じゲームで同時に起こらない)想定。
+ *
+ * 例:
+ *   bonusRatesFromDenominatorTable(['1','2','3','4','5','6'], {
+ *     big: { label: 'BIG合算', denominators: [362.1, 350.5, 337.8, 327.7, 319.7, 313.6] },
+ *   })
+ */
+export function bonusRatesFromDenominatorTable(
+  settings: SettingId[],
+  table: Record<string, { label: string; denominators: number[] }>,
+): BonusRate[] {
+  return Object.entries(table).map(([id, { label, denominators }]) => {
+    if (denominators.length !== settings.length) {
+      throw new Error(
+        `bonusRatesFromDenominatorTable: "${id}" の値は ${settings.length} 個必要です(${denominators.length} 個でした)`,
+      );
+    }
+    const probBySetting: Record<SettingId, number> = {};
+    settings.forEach((s, i) => {
+      probBySetting[s] = 1 / denominators[i];
+    });
+    return { id, label, probBySetting };
   });
 }
 
