@@ -2,14 +2,19 @@
 
 パチスロの設定判別(設定1〜6のどれか)を、観測した事象から**ベイズ推定**で行うWebアプリ。
 対応機種は「うみねこのなく頃に2」(実データ)「少女☆歌劇 レヴュースタァライト」(bonusRatesは実データ、
-outcomesはプレースホルダー)。機種ごとに2ページある: 「判別ツール」(入力→事後確率計算)と
-「設定差ポイント」(判別計算には使わない、既知の設定差要素をまとめた読み物ページ)。
+outcomesはプレースホルダー)。機種ごとに3ページある: 「判別ツール」(入力→事後確率計算)、
+「設定差ポイント」(判別計算には使わない、既知の設定差要素をまとめた読み物ページ)、
+「履歴」(投資・回収とボーナス記録をセッション単位で保存した実戦ログ)。
 機種切り替えはヘッダーのハンバーガーメニュー、ページ切り替えはタブで行う。
-URLは `/:machineId/tool` `/:machineId/points` で、直接リンク・リロードにも対応(react-router)。
+URLは `/:machineId/tool` `/:machineId/points` `/:machineId/history` で、直接リンク・リロードにも
+対応(react-router)。判別ツールの入力中データ・履歴はどちらも localStorage に永続化されるため、
+リロードしても消えない(機種ごとにキーを分けているので他機種のデータと混ざらない)。
 
 判別ツールでは、ボーナスを引くたびに**その時点の当選ゲーム数・契機・種別**を入力する1本のフローで、
 契機×種別の内訳による判別と、総ゲーム数×BIG/REG回数による判別の両方が自動的に(同じ入力から)
 計算される。これとは別に、総ゲーム数とBIG/REG回数だけを直接入力する独立した「簡易設定推測」も用意している。
+投資・回収(枚)も入力でき、「このセッションを履歴に保存」で現在の記録一式を履歴に切り出し、
+入力をリセットして次のセッションに備えられる。
 
 ## 技術構成
 
@@ -64,7 +69,13 @@ npm run lint     # oxlint
      `observations` を使わず `computePosterior(machine, [], { spinTally })` で直接計算する
 - `src/pages/PointsPage.tsx` — 「設定差ポイント」ページ。`machine.referencePoints` をそのまま
   カード+表として描画するだけ(計算ロジック無し)
+- `src/pages/HistoryPage.tsx` — 「履歴」ページ。保存済み `Session[]` を新しい順に一覧表示し、
+  展開するとそのセッションのボーナス記録が見える。合計差枚も表示。削除も可能
 - `src/App.tsx` — ルーティング定義のみ(`Routes`/`Route`)。実際のUIはLayout/pages側にある
+- `src/hooks/useLocalStorageState.ts` — `useState` と同じ感覚で使え、値の変更を自動で
+  localStorage に保存する汎用フック。ToolPage の observations/投資/回収/sessions で使用
+- `src/session.ts` — `Session` 型(投資・回収・observationsのひとまとまり)、`netCoins`(差枚計算)、
+  `storageKeys`(機種ごとにユニークな localStorage キーを作るヘルパー)
 
 ## 判別モデル
 
@@ -137,4 +148,5 @@ bonusRates(赤7BIG/青7BIG/REG)・referencePoints(ボーナス内訳/CZ確率/AT
 
 - 契機×種別以外の判別要素(小役確率、ART/CZ関連、演出示唆など)を Observation の種類として追加
 - 事前分布のカスタム(据え置き狙い等)
-- 入力履歴の localStorage 永続化
+- 履歴のエクスポート/インポート(端末間引き継ぎ。現状は端末のlocalStorage内のみ)
+- 履歴ページでの集計(機種別・期間別の合計差枚グラフなど)

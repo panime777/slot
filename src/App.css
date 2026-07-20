@@ -368,6 +368,106 @@ details.quick {
   opacity: 0.7;
 }
 
+.coins h2 {
+  margin-bottom: 10px;
+}
+
+.coins .row {
+  display: flex;
+  gap: 12px;
+}
+
+.coins label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.coins input {
+  font-size: 1rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #ccc);
+  background: var(--field, #fff);
+  color: inherit;
+  width: 100%;
+}
+
+.net {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin: 12px 0 0;
+}
+
+.net.plus {
+  color: #2563eb;
+}
+
+.net.minus {
+  color: #dc2626;
+}
+
+.save-session {
+  width: 100%;
+  margin-top: 12px;
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save-session:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.history-page .net {
+  font-size: 1.4rem;
+}
+
+.session summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+}
+
+.session summary::-webkit-details-marker {
+  display: none;
+}
+
+.session-date {
+  font-variant-numeric: tabular-nums;
+}
+
+.session .net {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.session .desc {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  margin: 10px 0;
+}
+
+.session ol {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --card: #1a1a1c;

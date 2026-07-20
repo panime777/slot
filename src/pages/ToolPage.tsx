@@ -4,6 +4,8 @@ import { computePosterior, deriveSpinTally } from '../engine/bayes';
 import { validateMachine } from '../engine/authoring';
 import type { Observation, PosteriorEntry } from '../engine/types';
 import type { OutletContext } from '../Layout';
+import { useLocalStorageState } from '../hooks/useLocalStorageState';
+import { storageKeys, todayDateString, type Session } from '../session';
 
 function PosteriorBars({ posterior }: { posterior: PosteriorEntry[] }) {
   const sorted = [...posterior].sort((a, b) => b.probability - a.probability);
@@ -34,7 +36,19 @@ export default function ToolPage() {
   const [typeId, setTypeId] = useState(machine.types[0].id);
 
   // これまでに観測したボーナス一覧(契機・種別・その時点の当選ゲーム数)。
-  const [observations, setObservations] = useState<Observation[]>([]);
+  // リロードしても消えないよう localStorage に永続化する。
+  const [observations, setObservations] = useLocalStorageState<Observation[]>(
+    storageKeys.observations(machine.id),
+    [],
+  );
+
+  // 今回のセッションの投資・回収(枚)。こちらも永続化する。
+  const [investment, setInvestment] = useLocalStorageState(storageKeys.investment(machine.id), '');
+  const [payout, setPayout] = useLocalStorageState(storageKeys.payout(machine.id), '');
+  const [sessions, setSessions] = useLocalStorageState<Session[]>(
+    storageKeys.sessions(machine.id),
+    [],
+  );
 
   // 総ゲーム数評価は observations から自動算出する(手入力の集計欄は持たない)。
   const spinTally = useMemo(
@@ -98,6 +112,27 @@ export default function ToolPage() {
   };
 
   const reset = () => setObservations([]);
+
+  const investmentNum = Number(investment) || 0;
+  const payoutNum = Number(payout) || 0;
+  const netCoinsNow = payoutNum - investmentNum;
+  const hasSessionData = observations.length > 0 || investment !== '' || payout !== '';
+
+  const saveSession = () => {
+    if (!hasSessionData) return;
+    const session: Session = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      date: todayDateString(),
+      investment: investmentNum,
+      payout: payoutNum,
+      observations,
+    };
+    setSessions((prev) => [session, ...prev]);
+    setObservations([]);
+    setInvestment('');
+    setPayout('');
+    setGameCount('');
+  };
 
   const sorted = [...posterior].sort((a, b) => b.probability - a.probability);
   const topSetting = sorted[0];
@@ -215,6 +250,45 @@ export default function ToolPage() {
             </li>
           ))}
         </ol>
+      </section>
+
+      <section className="coins">
+        <h2>投資・回収</h2>
+        <div className="row">
+          <label>
+            投資(枚)
+            <input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              placeholder="例: 500"
+              value={investment}
+              onChange={(e) => setInvestment(e.target.value)}
+            />
+          </label>
+          <label>
+            回収(枚)
+            <input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              placeholder="例: 800"
+              value={payout}
+              onChange={(e) => setPayout(e.target.value)}
+            />
+          </label>
+        </div>
+        <p className={`net ${netCoinsNow >= 0 ? 'plus' : 'minus'}`}>
+          差枚: {netCoinsNow >= 0 ? '+' : ''}
+          {netCoinsNow}枚
+        </p>
+        <button className="save-session" onClick={saveSession} disabled={!hasSessionData}>
+          このセッションを履歴に保存
+        </button>
+        <p className="hint">
+          保存すると投資・回収・ボーナス記録が「履歴」に残り、現在の入力はリセットされます。
+          {sessions.length > 0 && ` (保存済み ${sessions.length} 件)`}
+        </p>
       </section>
 
       {machine.bonusRates && machine.bonusRates.length > 0 && (

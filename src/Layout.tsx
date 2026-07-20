@@ -55,6 +55,9 @@ export default function Layout() {
         <NavLink to={`/${machine.id}/points`} className={({ isActive }) => (isActive ? 'active' : '')}>
           設定差ポイント
         </NavLink>
+        <NavLink to={`/${machine.id}/history`} className={({ isActive }) => (isActive ? 'active' : '')}>
+          履歴
+        </NavLink>
       </nav>
       <Outlet key={machine.id} context={{ machine } satisfies OutletContext} />
     </div>
