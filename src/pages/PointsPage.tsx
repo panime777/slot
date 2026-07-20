@@ -43,6 +43,16 @@ export default function PointsPage() {
               </table>
             </div>
           )}
+          {point.list && (
+            <dl className="points-list">
+              {point.list.map((item, j) => (
+                <div className="points-list-row" key={j}>
+                  <dt>{item.term}</dt>
+                  <dd>{item.detail}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </section>
       ))}
     </>

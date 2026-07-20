@@ -63,6 +63,12 @@ export interface ReferencePoint {
     /** 設定ID -> 表示用の文字列(例: "1/265.9")。 */
     rows: { label: string; valuesBySetting: Record<SettingId, string> }[];
   };
+  /**
+   * 「パターン → 示唆内容」のような、設定列を持たない対応一覧(ボイス・演出の台詞と
+   * 示唆内容など)。table が設定1〜6の数値比較に向くのに対し、list はカテゴリ的な
+   * 一覧を読みやすく出すためのもの。
+   */
+  list?: { term: string; detail: string }[];
 }
 
 /** 1機種の判別に必要なデータ一式。 */

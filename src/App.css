@@ -368,6 +368,39 @@ details.quick {
   opacity: 0.7;
 }
 
+.points-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.points-list-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  background: var(--field, #fff);
+  border: 1px solid var(--border, #e2e2e5);
+  border-radius: 8px;
+}
+
+.points-list-row dt {
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+.points-list-row dd {
+  margin: 0;
+  flex-shrink: 0;
+  max-width: 45%;
+  text-align: right;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #2563eb;
+}
+
 .coins h2 {
   margin-bottom: 10px;
 }

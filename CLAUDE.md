@@ -129,7 +129,12 @@ npm run lint     # oxlint
    - `notes`(任意) — その機種固有の注意点(ART方式による記録のコツなど)を文字列配列で
    - `referencePoints`(任意) — 「設定差ポイント」ページに載せる読み物。判別計算に使えない情報
      (CZ確率など排他性が保証できないものや、契機別内訳が薄くて計算に組み込めない実データ)の
-     置き場としても使える。`{ title, body, table?: { rows: [{ label, valuesBySetting }] } }`
+     置き場としても使える。`{ title, body, table?, list? }`
+     - `table` — 設定1〜6の数値比較(確率など)を横並びで見せたいとき
+       `{ rows: [{ label, valuesBySetting }] }`
+     - `list` — 設定列を持たない「パターン→示唆内容」の対応一覧(ボイスの台詞、終了画面の
+       名前など)を見やすいカード行で見せたいとき `{ term, detail }[]`。ボイス・演出系は
+       出現確率が非公開なことが多く、その旨を body に明記するとよい
    - コメントで出典(URL)を明記する
 2. `src/machines/index.ts` の `machines` 配列に追加する
 3. `npm run build` して `validateMachine` の警告(開発時コンソール)が出ないか確認する
