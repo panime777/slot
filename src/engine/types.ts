@@ -62,6 +62,8 @@ export interface Machine {
   outcomes: Outcome[];
   /** 総ゲーム数×当選回数による判別に使うカテゴリ別確率(任意)。 */
   bonusRates?: BonusRate[];
+  /** UIに表示する機種固有の注意点(任意)。例: ARTの区切り方によるゲーム数記録のコツなど。 */
+  notes?: string[];
 }
 
 /** ユーザーが観測した1回のボーナス。 */

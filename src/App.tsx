@@ -184,13 +184,11 @@ export default function App() {
             ※ 直近の記録({latestGameCount}G)より前の当選ゲーム数です。入力を確認してください。
           </p>
         )}
-        {machine.bonusRates && machine.bonusRates.length > 0 && (
-          <p className="hint tip">
-            うみねこ2は完走型ARTのため、ART中に当選したボーナスは当選ゲーム数が分かりにくいことがあります。
-            本体オプションでWITCHランプを「一発告知」にしておくと当選した瞬間が分かるので、
-            当選ゲーム数を正確に記録でき判別精度が上がります。
+        {machine.notes?.map((note, i) => (
+          <p key={i} className="hint tip">
+            {note}
           </p>
-        )}
+        ))}
       </section>
 
       <section className="result">
@@ -207,10 +205,10 @@ export default function App() {
           </p>
         )}
         <PosteriorBars posterior={posterior} />
-        {spinTally && (
+        {spinTally && machine.bonusRates && machine.bonusRates.length > 0 && (
           <p className="hint">
             総ゲーム数評価: {spinTally.totalSpins}G中
-            {(machine.bonusRates ?? [])
+            {machine.bonusRates
               .map((r) => `${r.label}${spinTally.counts[r.id] ?? 0}回`)
               .join(' / ')}
           </p>
@@ -247,7 +245,7 @@ export default function App() {
         <section className="quick">
           <h2>簡易設定推測</h2>
           <p className="desc">
-            ボーナスを1件ずつ記録しなくても、総ゲーム数とBIG/REGの回数だけで大まかに判定できます。
+            ボーナスを1件ずつ記録しなくても、総ゲーム数と各カテゴリの当選回数だけで大まかに判定できます。
             上の詳細な記録とは別の、独立した簡易ツールです。
           </p>
           <label className="quick-total">

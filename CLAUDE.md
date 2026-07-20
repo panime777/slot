@@ -27,7 +27,8 @@ npm run lint     # oxlint
 
 - `src/engine/` — 判別エンジン。ここに機種固有の知識を入れない
   - `types.ts` — Machine / Trigger / BonusType / Outcome / Observation / BonusRate / SpinTally などの型。
-    `Observation` は `{ triggerId, typeId, gameCount }`(gameCount = 当選ゲーム数)
+    `Observation` は `{ triggerId, typeId, gameCount }`(gameCount = 当選ゲーム数)。
+    `Machine.notes?: string[]` はUIに表示する機種固有の注意点(完走型ARTの記録のコツなど)
   - `bayes.ts`
     - `computePosterior(machine, observations, { prior?, spinTally? })` — 対数空間でベイズ計算
     - `deriveSpinTally(machine, observations)` — 観測列から SpinTally を自動算出(手入力の集計欄は無し)。
@@ -74,16 +75,38 @@ npm run lint     # oxlint
 判明したら `umineko2.ts` 内の該当コメント箇所を差し替える。
 `validateMachine` は正規化により常に合計100%になるはずなので、警告が出た場合はロジック側のバグを疑う。
 
-## 完走型ARTに関する注意
+## 完走型ARTに関する注意(うみねこ2)
 
 うみねこ2は完走型ART(ARTに入ったら区切り良く終了するまで抜けない方式)のため、ART中に成立した
 ボーナスは「今何ゲーム目か」が分かりにくいことがある。当選ゲーム数の入力精度が判別精度に直結するため、
 本体オプションでWITCHランプを「一発告知」に設定し、当選した瞬間のゲーム数を都度正確に記録する
-使い方を推奨する旨を UI(入力欄下のヒント)と README に明記している。
+使い方を推奨している。このような機種固有の注意点は `umineko2.ts` の `notes` 配列にデータとして
+持たせ、App.tsx 側はそれを汎用的に表示するだけ(ハードコードしない)にしている。
+
+## 新しい機種を追加する手順
+
+複数機種への対応を前提にした設計。`src/machines/` にデータファイルを1つ足すだけで対応できる:
+
+1. `src/machines/<id>.ts` を作成し、以下を定義する
+   - `settings` — 通常は `['1','2','3','4','5','6']`
+   - `triggers` — 当選契機の一覧(`{ id, label }`)
+   - `types` — ボーナス種別の一覧。総ゲーム数評価(BIG/REGなど)を使うなら各 BonusType に
+     `category`(下記 bonusRates の id に対応)を付ける
+   - `outcomes` — 契機×種別の複合確率。データが「1/N」表記なら `outcomesFromDenominatorTable`、
+     %表記なら `outcomesFromPercentTable` を使う
+   - `bonusRates`(任意) — 総ゲーム数×当選回数による判別を使うなら `bonusRatesFromDenominatorTable`
+     でBIG/REGなどカテゴリ別の1ゲームあたり確率を定義する。無くてもアプリは動く
+     (該当UIセクションが自動的に非表示になるだけ)
+   - `notes`(任意) — その機種固有の注意点(ART方式による記録のコツなど)を文字列配列で
+   - コメントで出典(URL)を明記する
+2. `src/machines/index.ts` の `machines` 配列に追加する
+3. `npm run build` して `validateMachine` の警告(開発時コンソール)が出ないか確認する
+4. ヘッダーの機種セレクタに自動で出現し、UIは全て機種データから動的に組み立てられる
+   (契機・種別の選択肢、総ゲーム数評価の有無、簡易設定推測の有無、machine.notes の表示、すべて
+   `machine` オブジェクトの中身だけで決まる。App.tsx 側にその機種固有の分岐を書く必要はない)
 
 ## 今後の拡張候補
 
 - 契機×種別以外の判別要素(小役確率、ART/CZ関連、演出示唆など)を Observation の種類として追加
 - 事前分布のカスタム(据え置き狙い等)
 - 入力履歴の localStorage 永続化
-- 他機種の追加

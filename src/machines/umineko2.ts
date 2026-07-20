@@ -127,6 +127,13 @@ const bonusRates = bonusRatesFromDenominatorTable(settings, {
   reg: { label: 'REG合算', denominators: [397.2, 390.1, 381.0, 374.5, 366.1, 360.1] },
 });
 
+// UIに表示する機種固有の注意点。
+const notes = [
+  'うみねこ2は完走型ARTのため、ART中に当選したボーナスは当選ゲーム数が分かりにくいことがあります。' +
+    '本体オプションでWITCHランプを「一発告知」にしておくと当選した瞬間が分かるので、' +
+    '当選ゲーム数を正確に記録でき判別精度が上がります。',
+];
+
 export const umineko2: Machine = {
   id: 'umineko2',
   name: 'うみねこのなく頃に2',
@@ -135,4 +142,5 @@ export const umineko2: Machine = {
   types,
   outcomes,
   bonusRates,
+  notes,
 };
