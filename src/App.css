@@ -1,10 +1,10 @@
 .app {
   max-width: 480px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
 header {
@@ -12,11 +12,51 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 2px 2px 4px;
 }
 
 header h1 {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   margin: 0;
+}
+
+.machine-name {
+  font-size: 0.8rem;
+  opacity: 0.65;
+  margin: 2px 0 0;
+}
+
+.menu-btn {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 6px 12px;
+  background: var(--field, #fff);
+}
+
+.machine-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--card, #f7f7f8);
+  border: 1px solid var(--border, #e2e2e5);
+  border-radius: 12px;
+  padding: 6px;
+}
+
+.machine-menu button {
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.machine-menu button.active {
+  background: #2563eb;
+  color: #fff;
+  font-weight: 600;
 }
 
 h2 {
@@ -48,17 +88,18 @@ button {
   padding-left: 18px;
 }
 
-section {
+section,
+details.quick {
   background: var(--card, #f7f7f8);
   border: 1px solid var(--border, #e2e2e5);
   border-radius: 12px;
-  padding: 16px;
+  padding: 14px;
 }
 
 .input .row {
   display: flex;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .input label {
@@ -99,8 +140,29 @@ section {
   margin-top: 12px;
 }
 
-.quick h2 {
-  margin-bottom: 8px;
+.quick summary {
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.quick summary::-webkit-details-marker {
+  display: none;
+}
+
+.quick summary::after {
+  content: '▾';
+  float: right;
+  opacity: 0.6;
+}
+
+.quick[open] summary::after {
+  content: '▴';
+}
+
+.quick summary + .desc {
+  margin-top: 10px;
 }
 
 .quick .desc {

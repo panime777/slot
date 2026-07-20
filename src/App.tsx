@@ -28,6 +28,7 @@ function PosteriorBars({ posterior }: { posterior: PosteriorEntry[] }) {
 export default function App() {
   const [machineId, setMachineId] = useState(machines[0].id);
   const machine = getMachine(machineId)!;
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // 現在選択中の入力(まだ「追加」していないもの)。
   const [gameCount, setGameCount] = useState('');
@@ -100,6 +101,18 @@ export default function App() {
 
   const reset = () => setObservations([]);
 
+  const switchMachine = (id: string) => {
+    const m = getMachine(id)!;
+    setMachineId(m.id);
+    setGameCount('');
+    setTriggerId(m.triggers[0].id);
+    setTypeId(m.types[0].id);
+    setObservations([]);
+    setQuickTotalSpins('');
+    setQuickCounts({});
+    setMenuOpen(false);
+  };
+
   const sorted = [...posterior].sort((a, b) => b.probability - a.probability);
   const topSetting = sorted[0];
   const quickTop = quickPosterior
@@ -109,27 +122,32 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>設定判別ツール</h1>
-        <select
-          value={machineId}
-          onChange={(e) => {
-            const m = getMachine(e.target.value)!;
-            setMachineId(m.id);
-            setGameCount('');
-            setTriggerId(m.triggers[0].id);
-            setTypeId(m.types[0].id);
-            setObservations([]);
-            setQuickTotalSpins('');
-            setQuickCounts({});
-          }}
+        <div>
+          <h1>設定判別ツール</h1>
+          <p className="machine-name">{machine.name}</p>
+        </div>
+        <button
+          className="menu-btn"
+          onClick={() => setMenuOpen((o) => !o)}
+          aria-label="機種を選択"
+          aria-expanded={menuOpen}
         >
-          {machines.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
+          ☰
+        </button>
       </header>
+      {menuOpen && (
+        <nav className="machine-menu">
+          {machines.map((m) => (
+            <button
+              key={m.id}
+              className={m.id === machineId ? 'active' : ''}
+              onClick={() => switchMachine(m.id)}
+            >
+              {m.name}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {import.meta.env.DEV && warnings.length > 0 && (
         <div className="warn">
@@ -242,8 +260,8 @@ export default function App() {
       </section>
 
       {machine.bonusRates && machine.bonusRates.length > 0 && (
-        <section className="quick">
-          <h2>簡易設定推測</h2>
+        <details className="quick">
+          <summary>簡易設定推測</summary>
           <p className="desc">
             ボーナスを1件ずつ記録しなくても、総ゲーム数と各カテゴリの当選回数だけで大まかに判定できます。
             上の詳細な記録とは別の、独立した簡易ツールです。
@@ -290,7 +308,7 @@ export default function App() {
           ) : (
             <p className="hint">総ゲーム数を入力すると各設定の確率が出ます。</p>
           )}
-        </section>
+        </details>
       )}
     </div>
   );
