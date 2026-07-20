@@ -1,32 +1,42 @@
-# React + TypeScript + Vite
+# スロット設定判別ツール
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+パチスロの設定(設定1〜6)を、観測したボーナスの**当選契機×種別**からベイズ推定で判別するWebアプリです。
+現在は「うみねこのなく頃に2」に対応しています。
 
-Currently, two official plugins are available:
+## 使い方
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. 実機を打ちながら、ボーナスを引いたら**契機**(何の役で成立したか)と**種別**(ボーナスの色/タイプ)を選んで「＋ ボーナスを追加」を押す
+2. ボーナスを引くたびに繰り返す
+3. 「設定判別」欄に各設定(1〜6)の確率がリアルタイムで表示される。観測数が増えるほど精度が上がる
+4. 入力を間違えた場合は「入力履歴」から個別に削除、やり直したい場合は「全消去」
 
-## React Compiler
+判別に使うのは契機×種別の組み合わせだけで、総回転数や小役カウントの入力は不要です。
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## セットアップ(開発者向け)
 
-## Expanding the Oxlint configuration
+Node.js が必要です(このリポジトリは nvm での導入を想定しています)。
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+```bash
+# 初回のみ: 依存パッケージのインストール
+npm install
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+# 開発サーバの起動(ブラウザで http://localhost:5173 を開く)
+npm run dev
+
+# 本番ビルド(型チェック込み)
+npm run build
+
+# lint
+npm run lint
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+nvm を使っている場合、シェルを開くたびに以下でNode/npmを読み込む必要があります。
+
+```bash
+export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"
+```
+
+## 仕組み・データについて
+
+設計や判別モデルの詳細、データの出典・注意点は [CLAUDE.md](CLAUDE.md) にまとめています。
+機種を追加したい場合は `src/machines/` にデータファイルを1つ足すだけで対応できます。
