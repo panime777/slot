@@ -40,14 +40,15 @@ const triggers = [
   { id: 'replay', label: 'リプレイ' },
 ];
 
-// ボーナス種別(色/タイプ)。
+// ボーナス種別(色/タイプ)。category は bonusRates(下記)の id に対応し、
+// 総ゲーム数評価(SpinTally)のカテゴリ当選回数を観測から自動集計するために使う。
 const types = [
-  { id: 'kogane_aka', label: '黄金郷ボーナス(赤赤赤)' },
-  { id: 'kogane_shiro', label: '黄金郷ボーナス(白白白)' },
-  { id: 'witch_akashiro', label: 'WITCHボーナス(赤赤白)' },
-  { id: 'witch_shiroaka', label: 'WITCHボーナス(白白赤)' },
-  { id: 'reg_akaao', label: 'REG(赤赤青)' },
-  { id: 'reg_shiroao', label: 'REG(白白青)' },
+  { id: 'kogane_aka', label: '黄金郷ボーナス(赤赤赤)', category: 'big' },
+  { id: 'kogane_shiro', label: '黄金郷ボーナス(白白白)', category: 'big' },
+  { id: 'witch_akashiro', label: 'WITCHボーナス(赤赤白)', category: 'big' },
+  { id: 'witch_shiroaka', label: 'WITCHボーナス(白白赤)', category: 'big' },
+  { id: 'reg_akaao', label: 'REG(赤赤青)', category: 'reg' },
+  { id: 'reg_shiroao', label: 'REG(白白青)', category: 'reg' },
 ];
 
 // 全設定でほぼ変化がなく判別に使えない列は、出典に明記されているとおり

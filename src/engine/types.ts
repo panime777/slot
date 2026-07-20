@@ -14,6 +14,11 @@ export interface Trigger {
 export interface BonusType {
   id: string;
   label: string;
+  /**
+   * この種別が属する BonusRate.id(例: 'big' / 'reg')。設定されていれば、
+   * この種別の観測を自動的に総ゲーム数評価(SpinTally)のカテゴリ当選回数として数える。
+   */
+  category?: string;
 }
 
 /**
@@ -63,6 +68,8 @@ export interface Machine {
 export interface Observation {
   triggerId: string;
   typeId: string;
+  /** このボーナスが成立した時点での総ゲーム数。総ゲーム数評価の自動算出に使う。 */
+  gameCount: number;
 }
 
 /** 判別結果1件(1設定ぶんの事後確率)。 */
