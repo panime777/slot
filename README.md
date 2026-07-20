@@ -54,5 +54,16 @@ export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"
 
 ## 仕組み・データについて
 
-設計や判別モデルの詳細、データの出典・注意点は [CLAUDE.md](CLAUDE.md) にまとめています。
+設計や判別モデルの詳細は [CLAUDE.md](CLAUDE.md) にまとめています。
 機種を追加したい場合は `src/machines/` にデータファイルを1つ足すだけで対応できます。
+
+### データの出典
+
+「うみねこのなく頃に2」の設定判別データ(契機×種別の複合確率、BIG/REG合算確率など)は、
+以下の公開スペック情報を基にしています。詳細は [src/machines/umineko2.ts](src/machines/umineko2.ts) のコメントを参照してください。
+
+- なな徹: https://nana-press.com/kaiseki/machine/1089/34695/
+- DMMぱちタウン: https://p-town.dmm.com/machines/4925
+
+なお、出典に具体値の記載がなく仮の値を当てている項目(REGの一部の列など)がある点も
+`umineko2.ts` にコメントで明記しています。
