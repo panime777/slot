@@ -56,18 +56,8 @@ export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"
 
 ## デプロイ
 
-Vercelにデプロイ済みです(プロジェクト: `panime/slot`)。現時点ではVercelアカウントにGitHubの
-ログイン連携が無いため、**pushしても自動デプロイはされません**。更新を公開URLに反映するには、
-変更をコミットした後に手動で以下を実行してください。
-
-```bash
-export NVM_DIR="$HOME/.nvm"; \. "$NVM_DIR/nvm.sh"
-npx vercel deploy --prod
-```
-
-pushするだけで自動デプロイされるようにしたい場合は、Vercelのアカウント設定
-(https://vercel.com/account/login-connections)でGitHubをログイン方法として連携したうえで、
-プロジェクトの Git 連携を設定し直してください。
+Vercelにデプロイ済みです(プロジェクト: `panime/slot`)。GitHubリポジトリと連携済みのため、
+`master` に push すると自動的にビルド・デプロイされ、公開URLに反映されます。手動デプロイは不要です。
 
 ## 仕組み・データについて
 
